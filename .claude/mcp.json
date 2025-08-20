@@ -1,0 +1,30 @@
+{
+    "mcpServers": {
+      "ElevenLabs": {
+        "command": "uvx",
+        "args": [
+          "elevenlabs-mcp"
+        ],
+        "env": {
+          "ELEVENLABS_API_KEY": "sk_e4787803f28210b7813a3bc2fc92de45ffe246a7792be091"
+        }
+      },
+      "firecrawl": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "firecrawl-mcp"
+        ],
+        "env": {
+          "FIRECRAWL_API_KEY": "fc-f973319beb20481b8626b42a88fb6aad"
+        }
+      },
+      "playwright": {
+        "command": "uvx",
+        "args": [
+          "@playwright/mcp@latest"
+        ]
+      }
+    }
+  }
+  

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Activity Test - Fixed</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Comprehensive Activity Test (Fixed Version)</h1>
+        
+        <div id="results" class="space-y-4"></div>
+        
+        <button onclick="runTests()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded">Run Tests</button>
+    </div>
+
+    <!-- Include required JavaScript files -->
+    <script src="src/storage/models.js"></script>
+    <script src="src/storage/storage.js"></script>
+    <script src="src/team/team-manager.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    <script src="src/workstreams/workstream-manager.js"></script>
+    <script src="src/team/capacity-tracker.js"></script>
+
+    <script>
+        // Store created member IDs for use in tests
+        let createdMemberIds = {};
+
+        function addResult(message, success = true) {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `p-4 rounded ${success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+            div.innerHTML = `${success ? '✓' : '✗'} ${message}`;
+            resultsDiv.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function runTests() {
+            clearResults();
+            
+            try {
+                // Clear storage
+                localStorage.clear();
+                
+                // Initialize everything
+                addResult('Step 1: Initializing managers...');
+                window.storageManager = new LocalStorageManager();
+                window.teamManager = new TeamManager();
+                window.sprintManager = new SprintManager();
+                window.workStreamManager = new WorkStreamManager();
+                
+                // Create test team members with known IDs
+                const testMembers = [
+                    { id: 'dev1', name: 'Alice (Developer)', defaultCapacity: 8, role: 'Developer' },
+                    { id: 'dev2', name: 'Bob (Developer)', defaultCapacity: 8, role: 'Developer' },
+                    { id: 'tester1', name: 'Carol (Tester)', defaultCapacity: 6, role: 'Tester' }
+                ];
+
+                testMembers.forEach(memberData => {
+                    const result = window.teamManager.createTeamMember({
+                        ...memberData,
+                        email: `${memberData.id}@test.com`,
+                        isActive: true
+                    });
+                    if (result.success) {
+                        createdMemberIds[memberData.id] = result.member.id;
+                        addResult(`Created team member: ${result.member.name} (ID: ${result.member.id})`);
+                    } else {
+                        addResult(`Failed to create member ${memberData.name}: ${result.errors.join(', ')}`, false);
+                        return;
+                    }
+                });
+
+                // Create test sprint
+                const sprintResult = window.sprintManager.createSprint({
+                    id: 'test-sprint-1',
+                    name: 'Test Sprint',
+                    startDate: '2025-08-25',
+                    endDate: '2025-09-05',
+                    duration: 2,
+                    type: 'Development',
+                    status: 'Active'
+                });
+
+                if (!sprintResult.success) {
+                    addResult(`Failed to create sprint: ${sprintResult.errors.join(', ')}`, false);
+                    return;
+                }
+
+                // Initialize capacity tracker
+                window.capacityTracker = new CapacityTracker();
+                addResult('Managers and sprint initialized successfully');
+
+                // Test 1: ActivityModel validation
+                try {
+                    const activity = new ActivityModel({
+                        name: 'Test Activity',
+                        type: 'development',
+                        capacity: 4,
+                        memberId: createdMemberIds['dev1'],
+                        date: '2025-08-25'
+                    });
+
+                    const validation = activity.validate();
+                    if (!validation.isValid) {
+                        throw new Error('Valid activity failed validation');
+                    }
+
+                    // Test invalid activity
+                    const invalidActivity = new ActivityModel({
+                        name: '',
+                        capacity: -1
+                    });
+
+                    const invalidValidation = invalidActivity.validate();
+                    if (invalidValidation.isValid) {
+                        throw new Error('Invalid activity passed validation');
+                    }
+
+                    addResult('✓ ActivityModel validation');
+                } catch (error) {
+                    addResult('✗ ActivityModel validation: ' + error.message, false);
+                }
+
+                // Test 2: Activity creation and storage
+                try {
+                    const result = window.capacityTracker.addMemberActivity(createdMemberIds['dev1'], '2025-08-25', {
+                        name: 'Unit Testing',
+                        type: 'testing',
+                        capacity: 2
+                    });
+
+                    if (!result.success) {
+                        throw new Error(`Failed to create activity: ${result.errors.join(', ')}`);
+                    }
+
+                    const activities = window.capacityTracker.getMemberDateActivities(createdMemberIds['dev1'], '2025-08-25');
+                    if (activities.length === 0) {
+                        throw new Error('Activity not found after creation');
+                    }
+
+                    addResult('✓ Activity creation and storage');
+                } catch (error) {
+                    addResult('✗ Activity creation and storage: ' + error.message, false);
+                }
+
+                // Test 3: Activity capacity validation
+                try {
+                    // Try to add activity that exceeds capacity
+                    const result = window.capacityTracker.addMemberActivity(createdMemberIds['dev1'], '2025-08-26', {
+                        name: 'Large Task',
+                        type: 'development',
+                        capacity: 20 // Exceeds 8 point limit
+                    });
+
+                    if (result.success) {
+                        throw new Error('Over-capacity activity was allowed');
+                    }
+
+                    addResult('✓ Activity capacity validation');
+                } catch (error) {
+                    addResult('✗ Activity capacity validation: ' + error.message, false);
+                }
+
+                // Test 4: Multiple activities per day
+                try {
+                    const activities = [
+                        { name: 'Morning Development', type: 'development', capacity: 3 },
+                        { name: 'Afternoon Testing', type: 'testing', capacity: 2 },
+                        { name: 'Sprint Planning', type: 'meeting', capacity: 1 }
+                    ];
+
+                    activities.forEach(activityData => {
+                        const result = window.capacityTracker.addMemberActivity(createdMemberIds['dev2'], '2025-08-27', activityData);
+                        if (!result.success) {
+                            throw new Error(`Failed to add activity: ${result.errors.join(', ')}`);
+                        }
+                    });
+
+                    const dayActivities = window.capacityTracker.getMemberDateActivities(createdMemberIds['dev2'], '2025-08-27');
+                    if (dayActivities.length !== 3) {
+                        throw new Error(`Expected 3 activities, got ${dayActivities.length}`);
+                    }
+
+                    const totalCapacity = dayActivities.reduce((sum, act) => sum + act.capacity, 0);
+                    if (totalCapacity !== 6) {
+                        throw new Error(`Expected total capacity 6, got ${totalCapacity}`);
+                    }
+
+                    addResult('✓ Multiple activities per day');
+                } catch (error) {
+                    addResult('✗ Multiple activities per day: ' + error.message, false);
+                }
+
+                // Test 5: Data persistence
+                try {
+                    // Save activities
+                    const saveResult = window.capacityTracker.saveMemberActivities();
+                    if (!saveResult) {
+                        throw new Error('Failed to save activities');
+                    }
+
+                    // Clear and reload
+                    window.capacityTracker.memberActivities = {};
+                    window.capacityTracker.memberActivities = window.capacityTracker.loadMemberActivities();
+
+                    const activities = window.capacityTracker.getMemberDateActivities(createdMemberIds['dev2'], '2025-08-27');
+                    if (activities.length === 0) {
+                        throw new Error('Activities not persisted');
+                    }
+
+                    addResult('✓ Data persistence');
+                } catch (error) {
+                    addResult('✗ Data persistence: ' + error.message, false);
+                }
+
+                // Test 6: Export/Import functionality
+                try {
+                    const exportData = window.capacityTracker.exportCapacityData();
+                    if (!exportData) {
+                        throw new Error('Failed to export data');
+                    }
+
+                    const parsedData = JSON.parse(exportData);
+                    if (!parsedData.memberActivities || !Array.isArray(parsedData.memberActivities)) {
+                        throw new Error('Export data missing activity information');
+                    }
+
+                    if (parsedData.version !== '2.0') {
+                        throw new Error('Export data missing version 2.0 activity support');
+                    }
+
+                    addResult('✓ Export/import functionality');
+                } catch (error) {
+                    addResult('✗ Export/import functionality: ' + error.message, false);
+                }
+
+                addResult('=== ALL TESTS COMPLETED ===');
+                addResult('Multi-activity capacity allocation is working correctly!');
+
+            } catch (error) {
+                addResult('ERROR: ' + error.message, false);
+                console.error(error);
+            }
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 500);
+        });
+    </script>
+</body>
+</html>

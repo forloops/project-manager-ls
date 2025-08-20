@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E2E User Workflow Testing</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .test-step { padding: 10px; margin: 5px 0; background: #f5f5f5; border-left: 4px solid #007acc; }
+        .test-result { padding: 10px; margin: 5px 0; }
+        .test-result.pass { background: #e8f5e8; border-left: 4px solid green; }
+        .test-result.fail { background: #ffe8e8; border-left: 4px solid red; }
+    </style>
+</head>
+<body>
+    <h1>End-to-End User Workflow Testing</h1>
+    
+    <div id="test-results"></div>
+    
+    <script src="src/storage/storage.js"></script>
+    <script src="src/storage/models.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    
+    <script>
+        function addResult(testName, steps, passed, message) {
+            const results = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = 'test-section';
+            
+            let stepsHtml = '';
+            steps.forEach((step, index) => {
+                stepsHtml += `<div class="test-step">Step ${index + 1}: ${step}</div>`;
+            });
+            
+            div.innerHTML = `
+                <h3 class="${passed ? 'success' : 'error'}">${passed ? '✓' : '✗'} ${testName}</h3>
+                ${stepsHtml}
+                <div class="test-result ${passed ? 'pass' : 'fail'}">
+                    <strong>Result:</strong> ${message}
+                </div>
+            `;
+            results.appendChild(div);
+        }
+
+        async function runE2ETests() {
+            console.log('🚀 Running End-to-End User Workflow Tests');
+            
+            // Clear storage for clean test
+            localStorage.clear();
+            
+            // Workflow 1: Complete Sprint Creation Flow
+            try {
+                const steps = [
+                    'User opens application',
+                    'User clicks "Create Sprint" button',
+                    'User fills in sprint details (name, start date, duration, type)',
+                    'User submits the form',
+                    'System validates and creates sprint',
+                    'User sees sprint in list view'
+                ];
+                
+                // Simulate the workflow
+                const storage = window.storageManager;
+                const manager = window.sprintManager;
+                
+                // Step 1-4: Create sprint
+                const sprintData = {
+                    name: 'E2E Test Sprint 1',
+                    startDate: '2024-01-01',
+                    duration: 2,
+                    type: 'Development'
+                };
+                
+                const createResult = manager.createSprint(sprintData);
+                
+                // Step 5-6: Verify creation and retrieval
+                const allSprints = manager.getAllSprints();
+                const createdSprint = allSprints.find(s => s.name === 'E2E Test Sprint 1');
+                
+                const success = createResult.success && createdSprint && allSprints.length === 1;
+                addResult('Sprint Creation Workflow', steps, success,
+                    success ? `Sprint created successfully with ID: ${createdSprint.id}` : 'Sprint creation workflow failed');
+                
+            } catch (error) {
+                addResult('Sprint Creation Workflow', steps, false, `Error: ${error.message}`);
+            }
+            
+            // Workflow 2: Sprint Editing Flow
+            try {
+                const steps = [
+                    'User views existing sprint in list',
+                    'User clicks "Edit" button on sprint',
+                    'User modifies sprint name',
+                    'User submits changes',
+                    'System updates sprint',
+                    'User sees updated sprint in list'
+                ];
+                
+                const manager = window.sprintManager;
+                const allSprints = manager.getAllSprints();
+                
+                if (allSprints.length > 0) {
+                    const sprintToEdit = allSprints[0];
+                    const originalName = sprintToEdit.name;
+                    const newName = 'Updated E2E Test Sprint';
+                    
+                    // Simulate edit workflow
+                    const updateResult = manager.updateSprint(sprintToEdit.id, {
+                        name: newName
+                    });
+                    
+                    const updatedSprint = manager.getSprintById(sprintToEdit.id);
+                    const success = updateResult.success && updatedSprint.name === newName;
+                    
+                    addResult('Sprint Editing Workflow', steps, success,
+                        success ? `Sprint name updated from "${originalName}" to "${newName}"` : 'Sprint editing workflow failed');
+                } else {
+                    addResult('Sprint Editing Workflow', steps, false, 'No sprints available to edit');
+                }
+                
+            } catch (error) {
+                addResult('Sprint Editing Workflow', steps, false, `Error: ${error.message}`);
+            }
+            
+            // Workflow 3: Calendar View Flow
+            try {
+                const steps = [
+                    'User switches to Calendar view tab',
+                    'User selects a sprint from dropdown',
+                    'System generates calendar for selected sprint',
+                    'User sees sprint boundaries and working days',
+                    'Calendar shows capacity information'
+                ];
+                
+                const manager = window.sprintManager;
+                const allSprints = manager.getAllSprints();
+                
+                if (allSprints.length > 0) {
+                    const sprint = allSprints[0];
+                    const calendar = manager.getSprintCalendar(sprint.id);
+                    
+                    const sprintDays = calendar.filter(day => day.isInSprint);
+                    const weekendDays = calendar.filter(day => day.isWeekend && day.isInSprint);
+                    const workingDays = calendar.filter(day => !day.isWeekend && day.isInSprint);
+                    
+                    const success = calendar.length > 0 && sprintDays.length === 14 && workingDays.length === 10;
+                    
+                    addResult('Calendar View Workflow', steps, success,
+                        success ? `Calendar generated: ${sprintDays.length} sprint days (${workingDays.length} working, ${weekendDays.length} weekend)` : 'Calendar generation failed');
+                } else {
+                    addResult('Calendar View Workflow', steps, false, 'No sprints available for calendar view');
+                }
+                
+            } catch (error) {
+                addResult('Calendar View Workflow', steps, false, `Error: ${error.message}`);
+            }
+            
+            // Workflow 4: Multiple Sprint Management
+            try {
+                const steps = [
+                    'User creates multiple sprints of different types',
+                    'System validates no overlapping dates',
+                    'User views all sprints in list',
+                    'User can see different sprint types with proper badges',
+                    'System maintains data integrity across operations'
+                ];
+                
+                const manager = window.sprintManager;
+                const sprintTypes = ['Development', 'Non-Functional', 'Release', 'Hardening'];
+                let createdCount = 0;
+                
+                // Create sprints with different start dates to avoid overlap
+                for (let i = 0; i < sprintTypes.length; i++) {
+                    const startDate = new Date(2024, 1, 1 + (i * 14)); // 2 weeks apart
+                    const result = manager.createSprint({
+                        name: `${sprintTypes[i]} Sprint ${i + 1}`,
+                        startDate: startDate.toISOString().split('T')[0],
+                        duration: 2,
+                        type: sprintTypes[i]
+                    });
+                    
+                    if (result.success) createdCount++;
+                }
+                
+                const finalSprints = manager.getAllSprints();
+                const success = createdCount === sprintTypes.length && finalSprints.length >= sprintTypes.length;
+                
+                addResult('Multiple Sprint Management', steps, success,
+                    success ? `Created ${createdCount} sprints of different types. Total sprints: ${finalSprints.length}` : 'Multiple sprint creation failed');
+                
+            } catch (error) {
+                addResult('Multiple Sprint Management', steps, false, `Error: ${error.message}`);
+            }
+            
+            // Workflow 5: Data Persistence and Export
+            try {
+                const steps = [
+                    'User works with multiple sprints',
+                    'User exports all data',
+                    'System generates JSON export',
+                    'User could import data in new session',
+                    'Data integrity maintained throughout'
+                ];
+                
+                const storage = window.storageManager;
+                const manager = window.sprintManager;
+                
+                const beforeExport = manager.getAllSprints().length;
+                const exportData = storage.exportData();
+                const exportedData = JSON.parse(exportData);
+                
+                // Test import functionality
+                const importResult = storage.importData(exportData);
+                const afterImport = manager.getAllSprints().length;
+                
+                const success = exportData && exportedData.sprints.length === beforeExport && 
+                              importResult && afterImport === beforeExport;
+                
+                addResult('Data Persistence and Export', steps, success,
+                    success ? `Exported/imported ${exportedData.sprints.length} sprints successfully` : 'Data export/import workflow failed');
+                
+            } catch (error) {
+                addResult('Data Persistence and Export', steps, false, `Error: ${error.message}`);
+            }
+            
+            // Workflow 6: Error Handling and Validation
+            try {
+                const steps = [
+                    'User tries to create invalid sprint (missing name)',
+                    'System shows validation error',
+                    'User tries to create overlapping sprint',
+                    'System prevents overlap and shows error',
+                    'User provides valid data and succeeds'
+                ];
+                
+                const manager = window.sprintManager;
+                
+                // Test invalid sprint
+                const invalidResult = manager.createSprint({
+                    name: '', // Invalid
+                    startDate: '2024-01-01',
+                    duration: 2,
+                    type: 'Development'
+                });
+                
+                // Test overlapping sprint
+                const overlapResult = manager.createSprint({
+                    name: 'Overlapping Sprint',
+                    startDate: '2024-01-05', // Overlaps with existing sprint
+                    duration: 2,
+                    type: 'Development'
+                });
+                
+                // Test valid sprint
+                const validResult = manager.createSprint({
+                    name: 'Valid Non-Overlapping Sprint',
+                    startDate: '2024-06-01', // Non-overlapping date
+                    duration: 2,
+                    type: 'Development'
+                });
+                
+                const success = !invalidResult.success && !overlapResult.success && validResult.success;
+                
+                addResult('Error Handling and Validation', steps, success,
+                    success ? 'All validation and error handling working correctly' : 'Validation or error handling failed');
+                
+            } catch (error) {
+                addResult('Error Handling and Validation', steps, false, `Error: ${error.message}`);
+            }
+            
+            // Final Summary
+            const allResults = document.querySelectorAll('.test-result');
+            const passedResults = document.querySelectorAll('.test-result.pass');
+            const passRate = Math.round((passedResults.length / allResults.length) * 100);
+            
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'test-section';
+            summaryDiv.style.backgroundColor = passRate >= 90 ? '#e8f5e8' : '#ffe8e8';
+            summaryDiv.innerHTML = `
+                <h2>E2E Testing Summary</h2>
+                <p><strong>Tests Passed: ${passedResults.length}/${allResults.length} (${passRate}%)</strong></p>
+                <p class="${passRate >= 90 ? 'success' : 'error'}">
+                    ${passRate >= 90 ? '✅ All critical user workflows are working correctly!' : '❌ Some user workflows need attention.'}
+                </p>
+                <p class="info">
+                    ${passRate >= 90 ? 
+                        'The application is ready for user acceptance testing and production deployment.' : 
+                        'Review failed workflows before proceeding to production.'}
+                </p>
+            `;
+            document.getElementById('test-results').appendChild(summaryDiv);
+            
+            console.log(`E2E Tests completed: ${passedResults.length}/${allResults.length} passed (${passRate}%)`);
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', runE2ETests);
+    </script>
+</body>
+</html>

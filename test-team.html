@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Management Test - Product Manager LS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-6" x-data="teamTestApp()" x-cloak>
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Team Management Test</h1>
+        
+        <!-- Test Controls -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Test Controls</h2>
+            <div class="flex space-x-4">
+                <button @click="addTestTeamMember()" 
+                        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Add Test Team Member
+                </button>
+                <button @click="addTestSprint()" 
+                        class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                    Add Test Sprint
+                </button>
+                <button @click="runCapacityTest()" 
+                        class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                    Test Capacity Tracking
+                </button>
+                <button @click="clearAllData()" 
+                        class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                    Clear All Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Team Members Display -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Team Members</h2>
+            <div class="space-y-4">
+                <template x-for="member in teamMembers" :key="member.id">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-semibold" x-text="member.name"></h3>
+                                <p class="text-gray-600" x-text="member.role"></p>
+                                <p class="text-sm text-gray-500" x-text="member.email"></p>
+                                <p class="text-sm" x-text="`Capacity: ${member.defaultCapacity} points`"></p>
+                                <p class="text-sm" x-text="`Time Off: ${member.timeOff.length} periods`"></p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button @click="addTimeOffToMember(member.id)" 
+                                        class="bg-yellow-500 text-white px-2 py-1 rounded text-sm">
+                                    Add Time Off
+                                </button>
+                                <button @click="deleteMember(member.id)" 
+                                        class="bg-red-500 text-white px-2 py-1 rounded text-sm">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="teamMembers.length === 0" class="text-gray-500 text-center py-4">
+                    No team members added yet.
+                </div>
+            </div>
+        </div>
+
+        <!-- Sprints Display -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Sprints</h2>
+            <div class="space-y-4">
+                <template x-for="sprint in sprints" :key="sprint.id">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="font-semibold" x-text="sprint.name"></h3>
+                        <p class="text-gray-600" x-text="`${sprint.startDate} to ${sprint.endDate}`"></p>
+                        <div x-show="capacityData[sprint.id]" class="mt-2">
+                            <p class="text-sm" x-text="`Team Capacity: ${capacityData[sprint.id]?.totalCapacity || 0} points`"></p>
+                            <p class="text-sm" x-text="`Utilization: ${capacityData[sprint.id]?.utilizationPercentage || 0}%`"></p>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="sprints.length === 0" class="text-gray-500 text-center py-4">
+                    No sprints added yet.
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Results -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Test Results</h2>
+            <div class="space-y-2">
+                <template x-for="result in testResults" :key="result.id">
+                    <div class="text-sm" 
+                         :class="result.success ? 'text-green-600' : 'text-red-600'"
+                         x-text="result.message"></div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="src/storage/storage.js"></script>
+    <script src="src/storage/models.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    <script src="src/team/team-manager.js"></script>
+    <script src="src/team/capacity-tracker.js"></script>
+
+    <script>
+        function teamTestApp() {
+            return {
+                teamMembers: [],
+                sprints: [],
+                capacityData: {},
+                testResults: [],
+                
+                init() {
+                    this.loadData();
+                    this.addResult('Team management test initialized', true);
+                },
+                
+                loadData() {
+                    try {
+                        this.teamMembers = window.teamManager.getAllTeamMembers();
+                        this.sprints = window.sprintManager.getAllSprints();
+                        this.addResult(`Loaded ${this.teamMembers.length} team members and ${this.sprints.length} sprints`, true);
+                    } catch (error) {
+                        this.addResult(`Failed to load data: ${error.message}`, false);
+                    }
+                },
+                
+                addTestTeamMember() {
+                    const roles = ['Developer', 'Tester', 'Business Analyst', 'Product Owner'];
+                    const names = ['Alice Johnson', 'Bob Smith', 'Carol Brown', 'David Wilson', 'Eva Davis'];
+                    
+                    const randomName = names[Math.floor(Math.random() * names.length)];
+                    const randomRole = roles[Math.floor(Math.random() * roles.length)];
+                    
+                    const memberData = {
+                        name: randomName,
+                        email: `${randomName.toLowerCase().replace(' ', '.')}@company.com`,
+                        role: randomRole,
+                        defaultCapacity: 8 + Math.floor(Math.random() * 4) // 8-11 points
+                    };
+                    
+                    try {
+                        const result = window.teamManager.createTeamMember(memberData);
+                        if (result.success) {
+                            this.loadData();
+                            this.addResult(`Created team member: ${memberData.name}`, true);
+                        } else {
+                            this.addResult(`Failed to create team member: ${result.errors.join(', ')}`, false);
+                        }
+                    } catch (error) {
+                        this.addResult(`Error creating team member: ${error.message}`, false);
+                    }
+                },
+                
+                addTestSprint() {
+                    const sprintNames = ['Sprint Alpha', 'Sprint Beta', 'Sprint Gamma', 'Sprint Delta'];
+                    const today = new Date();
+                    const startDate = new Date(today.getTime() + Math.random() * 30 * 24 * 60 * 60 * 1000);
+                    
+                    const sprintData = {
+                        name: sprintNames[Math.floor(Math.random() * sprintNames.length)] + ' ' + Date.now(),
+                        startDate: startDate.toISOString().split('T')[0],
+                        duration: Math.random() > 0.5 ? 2 : 3,
+                        type: 'Development'
+                    };
+                    
+                    sprintData.endDate = window.SprintModel.calculateEndDate(sprintData.startDate, sprintData.duration);
+                    
+                    try {
+                        const result = window.sprintManager.createSprint(sprintData);
+                        if (result.success) {
+                            this.loadData();
+                            this.addResult(`Created sprint: ${sprintData.name}`, true);
+                        } else {
+                            this.addResult(`Failed to create sprint: ${result.errors.join(', ')}`, false);
+                        }
+                    } catch (error) {
+                        this.addResult(`Error creating sprint: ${error.message}`, false);
+                    }
+                },
+                
+                addTimeOffToMember(memberId) {
+                    const startDate = new Date();
+                    startDate.setDate(startDate.getDate() + Math.floor(Math.random() * 30));
+                    const endDate = new Date(startDate);
+                    endDate.setDate(endDate.getDate() + Math.floor(Math.random() * 5) + 1);
+                    
+                    try {
+                        const result = window.teamManager.addTimeOff(
+                            memberId,
+                            startDate.toISOString().split('T')[0],
+                            endDate.toISOString().split('T')[0],
+                            'Test vacation'
+                        );
+                        
+                        if (result.success) {
+                            this.loadData();
+                            this.addResult('Added time off successfully', true);
+                        } else {
+                            this.addResult(`Failed to add time off: ${result.errors.join(', ')}`, false);
+                        }
+                    } catch (error) {
+                        this.addResult(`Error adding time off: ${error.message}`, false);
+                    }
+                },
+                
+                deleteMember(memberId) {
+                    try {
+                        const result = window.teamManager.deleteTeamMember(memberId);
+                        if (result.success) {
+                            this.loadData();
+                            this.addResult('Deactivated team member successfully', true);
+                        } else {
+                            this.addResult(`Failed to deactivate member: ${result.errors.join(', ')}`, false);
+                        }
+                    } catch (error) {
+                        this.addResult(`Error deactivating member: ${error.message}`, false);
+                    }
+                },
+                
+                runCapacityTest() {
+                    try {
+                        this.capacityData = {};
+                        
+                        this.sprints.forEach(sprint => {
+                            const capacity = window.capacityTracker.calculateTeamCapacity(sprint.id);
+                            this.capacityData[sprint.id] = capacity;
+                        });
+                        
+                        this.addResult('Capacity calculations completed', true);
+                        
+                        // Test capacity override
+                        if (this.teamMembers.length > 0 && this.sprints.length > 0) {
+                            const member = this.teamMembers[0];
+                            const sprint = this.sprints[0];
+                            
+                            const overrideResult = window.capacityTracker.setMemberSprintCapacity(
+                                member.id, 
+                                sprint.id, 
+                                member.defaultCapacity * 0.5, 
+                                'Test override'
+                            );
+                            
+                            if (overrideResult.success) {
+                                this.addResult('Capacity override test successful', true);
+                            } else {
+                                this.addResult('Capacity override test failed', false);
+                            }
+                        }
+                        
+                    } catch (error) {
+                        this.addResult(`Capacity test error: ${error.message}`, false);
+                    }
+                },
+                
+                clearAllData() {
+                    if (confirm('Are you sure you want to clear all test data?')) {
+                        try {
+                            window.storageManager.clearData();
+                            this.loadData();
+                            this.capacityData = {};
+                            this.addResult('All data cleared', true);
+                        } catch (error) {
+                            this.addResult(`Failed to clear data: ${error.message}`, false);
+                        }
+                    }
+                },
+                
+                addResult(message, success) {
+                    this.testResults.unshift({
+                        id: Date.now(),
+                        message: `[${new Date().toLocaleTimeString()}] ${message}`,
+                        success: success
+                    });
+                    
+                    // Keep only last 20 results
+                    if (this.testResults.length > 20) {
+                        this.testResults = this.testResults.slice(0, 20);
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>

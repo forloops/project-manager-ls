@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint 1 Core Features Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-50 p-6">
+    <div x-data="sprint1Test()" x-cloak class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Sprint 1 Core Features Test</h1>
+        
+        <!-- Test Results -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Test Results</h2>
+            <div class="space-y-2">
+                <template x-for="test in tests" :key="test.name">
+                    <div class="flex items-center space-x-3">
+                        <span :class="test.passed ? 'text-green-600' : 'text-red-600'">
+                            <span x-text="test.passed ? '✓' : '✗'"></span>
+                        </span>
+                        <span x-text="test.name"></span>
+                        <span x-show="!test.passed" class="text-red-500 text-sm" x-text="test.error"></span>
+                    </div>
+                </template>
+            </div>
+            
+            <div class="mt-4 p-3 rounded" :class="allTestsPassed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                <span x-text="allTestsPassed ? 'All tests passed! Sprint 1 functionality is working correctly.' : 'Some tests failed. Check console for details.'"></span>
+            </div>
+        </div>
+
+        <!-- Manual Test Actions -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Manual Test Actions</h2>
+            <div class="space-y-4">
+                <button @click="createTestSprint()" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                    Create Test Sprint
+                </button>
+                
+                <button @click="testCalendarGeneration()" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                    Test Calendar Generation
+                </button>
+                
+                <button @click="testEndDateCalculation()" 
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                    Test End Date Calculation
+                </button>
+                
+                <button @click="clearTestData()" 
+                        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                    Clear Test Data
+                </button>
+            </div>
+            
+            <div x-show="testOutput" class="mt-4 p-4 bg-gray-100 rounded text-sm">
+                <pre x-text="testOutput"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Application Scripts -->
+    <script src="src/storage/storage.js"></script>
+    <script src="src/storage/models.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    <script src="src/team/team-manager.js"></script>
+    <script src="src/team/capacity-tracker.js"></script>
+    <script src="src/workstreams/workstream-manager.js"></script>
+
+    <script>
+        function sprint1Test() {
+            return {
+                tests: [],
+                testOutput: '',
+                allTestsPassed: false,
+
+                init() {
+                    this.runTests();
+                },
+
+                runTests() {
+                    this.tests = [];
+                    
+                    // Test 1: Storage Manager Initialization
+                    try {
+                        const storageAvailable = window.storageManager && window.storageManager.isStorageAvailable();
+                        this.addTest('Storage Manager Available', storageAvailable);
+                    } catch (error) {
+                        this.addTest('Storage Manager Available', false, error.message);
+                    }
+
+                    // Test 2: Sprint Model Creation
+                    try {
+                        const sprint = new SprintModel({
+                            name: 'Test Sprint',
+                            startDate: '2024-01-01',
+                            duration: 2,
+                            type: 'Development'
+                        });
+                        sprint.endDate = SprintModel.calculateEndDate(sprint.startDate, sprint.duration);
+                        const validation = sprint.validate();
+                        this.addTest('Sprint Model Creation & Validation', validation.isValid);
+                    } catch (error) {
+                        this.addTest('Sprint Model Creation & Validation', false, error.message);
+                    }
+
+                    // Test 3: Sprint Manager Initialization
+                    try {
+                        const sprintManager = window.sprintManager;
+                        const sprintsLoaded = Array.isArray(sprintManager.getAllSprints());
+                        this.addTest('Sprint Manager Initialization', sprintsLoaded);
+                    } catch (error) {
+                        this.addTest('Sprint Manager Initialization', false, error.message);
+                    }
+
+                    // Test 4: End Date Calculation
+                    try {
+                        const endDate = SprintModel.calculateEndDate('2024-01-01', 2);
+                        const expectedEndDate = '2024-01-14'; // 2 weeks from Jan 1
+                        this.addTest('End Date Calculation (2 weeks)', endDate === expectedEndDate);
+                        
+                        const endDate3Week = SprintModel.calculateEndDate('2024-01-01', 3);
+                        const expectedEndDate3Week = '2024-01-21'; // 3 weeks from Jan 1
+                        this.addTest('End Date Calculation (3 weeks)', endDate3Week === expectedEndDate3Week);
+                    } catch (error) {
+                        this.addTest('End Date Calculation', false, error.message);
+                    }
+
+                    // Test 5: Sprint CRUD Operations
+                    try {
+                        const testSprintData = {
+                            name: 'CRUD Test Sprint',
+                            startDate: '2024-02-01',
+                            duration: 2,
+                            type: 'Development'
+                        };
+                        
+                        const createResult = window.sprintManager.createSprint(testSprintData);
+                        this.addTest('Sprint Creation', createResult.success);
+                        
+                        if (createResult.success) {
+                            const sprintId = createResult.sprint.id;
+                            const updateResult = window.sprintManager.updateSprint(sprintId, { name: 'Updated Test Sprint' });
+                            this.addTest('Sprint Update', updateResult.success);
+                            
+                            const deleteResult = window.sprintManager.deleteSprint(sprintId);
+                            this.addTest('Sprint Deletion', deleteResult.success);
+                        }
+                    } catch (error) {
+                        this.addTest('Sprint CRUD Operations', false, error.message);
+                    }
+
+                    // Test 6: Calendar Generation
+                    try {
+                        const testSprint = new SprintModel({
+                            name: 'Calendar Test',
+                            startDate: '2024-01-01',
+                            endDate: '2024-01-14',
+                            duration: 2,
+                            type: 'Development'
+                        });
+                        
+                        const sprintDates = testSprint.getSprintDates();
+                        const hasCorrectDates = sprintDates.length === 14; // 14 days total
+                        this.addTest('Calendar Date Generation', hasCorrectDates);
+                    } catch (error) {
+                        this.addTest('Calendar Date Generation', false, error.message);
+                    }
+
+                    // Calculate overall test status
+                    this.allTestsPassed = this.tests.every(test => test.passed);
+                },
+
+                addTest(name, passed, error = '') {
+                    this.tests.push({ name, passed, error });
+                },
+
+                createTestSprint() {
+                    const testData = {
+                        name: 'Manual Test Sprint - ' + new Date().toISOString().split('T')[0],
+                        startDate: new Date().toISOString().split('T')[0],
+                        duration: 2,
+                        type: 'Development'
+                    };
+                    
+                    const result = window.sprintManager.createSprint(testData);
+                    this.testOutput = JSON.stringify(result, null, 2);
+                },
+
+                testCalendarGeneration() {
+                    const sprints = window.sprintManager.getAllSprints();
+                    if (sprints.length > 0) {
+                        const calendar = window.sprintManager.getSprintCalendar(sprints[0].id);
+                        this.testOutput = JSON.stringify(calendar.slice(0, 10), null, 2); // Show first 10 days
+                    } else {
+                        this.testOutput = 'No sprints available for calendar test';
+                    }
+                },
+
+                testEndDateCalculation() {
+                    const today = new Date().toISOString().split('T')[0];
+                    const endDate2Week = SprintModel.calculateEndDate(today, 2);
+                    const endDate3Week = SprintModel.calculateEndDate(today, 3);
+                    
+                    this.testOutput = `Start: ${today}\n2-week end: ${endDate2Week}\n3-week end: ${endDate3Week}`;
+                },
+
+                clearTestData() {
+                    try {
+                        // Clear only test sprints
+                        const allSprints = window.sprintManager.getAllSprints();
+                        const testSprints = allSprints.filter(sprint => sprint.name.includes('Test'));
+                        
+                        let cleared = 0;
+                        testSprints.forEach(sprint => {
+                            const result = window.sprintManager.deleteSprint(sprint.id);
+                            if (result.success) cleared++;
+                        });
+                        
+                        this.testOutput = `Cleared ${cleared} test sprints`;
+                    } catch (error) {
+                        this.testOutput = 'Error clearing test data: ' + error.message;
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>

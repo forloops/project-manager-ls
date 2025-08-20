@@ -1,0 +1,2034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Manager LS - Sprint Management</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Offline sprint management and capacity planning for agile teams">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="PM-LS">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTggMnYzbTggMFYybS05IDhoMTBNNSAyMWgxNGEyIDIgMCAwIDAgMi0yVjdhMiAyIDAgMCAwLTItMkg1YTIgMiAwIDAgMC0yIDJ2MTJhMiAyIDAgMCAwIDIgMnoiIHN0cm9rZT0iIzI1NjNlYiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+">
+    
+    <!-- TailwindCSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- AlpineJS via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        /* Custom styles for sprint type badges */
+        .sprint-type-development { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .sprint-type-non-functional { @apply bg-purple-100 text-purple-800 border-purple-200; }
+        .sprint-type-release { @apply bg-green-100 text-green-800 border-green-200; }
+        .sprint-type-hardening { @apply bg-orange-100 text-orange-800 border-orange-200; }
+        
+        /* Calendar day styling */
+        .calendar-day { @apply border border-gray-200 p-2 min-h-[60px] text-sm; }
+        .calendar-day.weekend { @apply bg-gray-50; }
+        .calendar-day.sprint-boundary { @apply border-2 border-blue-500; }
+        
+        /* Capacity indicators */
+        .capacity-bar { @apply w-full h-2 bg-gray-200 rounded overflow-hidden; }
+        .capacity-fill { @apply h-full transition-all duration-300; }
+        .capacity-normal { @apply bg-green-500; }
+        .capacity-high { @apply bg-yellow-500; }
+        .capacity-over { @apply bg-red-500; }
+        
+        /* Team role badges */
+        .role-developer { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .role-tester { @apply bg-green-100 text-green-800 border-green-200; }
+        .role-business-analyst { @apply bg-purple-100 text-purple-800 border-purple-200; }
+        .role-product-owner { @apply bg-orange-100 text-orange-800 border-orange-200; }
+        .role-product-manager { @apply bg-red-100 text-red-800 border-red-200; }
+        .role-technical-lead { @apply bg-indigo-100 text-indigo-800 border-indigo-200; }
+        .role-architect { @apply bg-gray-100 text-gray-800 border-gray-200; }
+        .role-production-support { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        
+        /* Work stream indicators */
+        .workstream-tag { @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium; }
+        .workstream-color-dot { @apply w-3 h-3 rounded-full border border-white; }
+        .workstream-legend { @apply flex items-center space-x-2 text-sm; }
+        
+        /* Release status badges */
+        .release-status-planning { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        .release-status-in-progress { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .release-status-go { @apply bg-green-100 text-green-800 border-green-200; }
+        .release-status-no-go { @apply bg-red-100 text-red-800 border-red-200; }
+        .release-status-released { @apply bg-purple-100 text-purple-800 border-purple-200; }
+        
+        /* Color picker styles */
+        .color-picker-option { @apply w-8 h-8 rounded-full border-2 border-gray-300 cursor-pointer transition-all; }
+        .color-picker-option:hover { @apply scale-110 border-gray-400; }
+        .color-picker-option.selected { @apply border-gray-600 scale-110; }
+        .color-picker-option.used { @apply opacity-50; }
+        
+        /* Enhanced Capacity Planning Styles with Mobile Support */
+        .capacity-cell {
+            transition: all 0.2s ease-in-out;
+            min-height: 60px;
+            border: 1px solid #e5e7eb;
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            touch-action: manipulation;
+        }
+        
+        .capacity-cell:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+            z-index: 1;
+        }
+        
+        .capacity-cell.dragging {
+            opacity: 0.7;
+            transform: scale(0.95) rotate(2deg);
+            z-index: 1000;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .capacity-cell.drop-target {
+            border-color: #3b82f6;
+            background-color: #dbeafe;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+            animation: pulse-border 1s infinite;
+        }
+        
+        .capacity-cell.touch-active {
+            background-color: #f3f4f6;
+            transform: scale(1.02);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.1); }
+        }
+        
+        /* Mobile-specific touch optimizations */
+        @media (max-width: 768px) {
+            .capacity-cell {
+                min-height: 70px;
+                padding: 0.75rem;
+            }
+            
+            .capacity-cell input {
+                font-size: 16px; /* Prevents zoom on iOS */
+                padding: 8px;
+            }
+        }
+        
+        /* Enhanced visual feedback for capacity levels */
+        .capacity-cell.critical {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        
+        .capacity-cell.high {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+        
+        .capacity-cell.optimal {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        
+        .capacity-cell.under-utilized {
+            background: linear-gradient(135deg, rgba(156, 163, 175, 0.1) 0%, rgba(156, 163, 175, 0.05) 100%);
+            border-color: rgba(156, 163, 175, 0.3);
+        }
+        
+        .capacity-heatmap-cell {
+            transition: background-color 0.3s ease;
+        }
+        
+        .capacity-heatmap-cell:hover {
+            opacity: 0.8;
+            transform: scale(1.02);
+        }
+        
+        /* Dashboard KPI cards */
+        .kpi-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        /* Enhanced Chart containers with interactivity */
+        .chart-container {
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .chart-container:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        /* Interactive heatmap styles */
+        .heatmap-wrapper {
+            position: relative;
+        }
+        
+        .heatmap-chart-container {
+            overflow: hidden;
+            border-radius: 8px;
+        }
+        
+        .heatmap-legend {
+            background: rgba(249, 250, 251, 0.8);
+            border-radius: 6px;
+            padding: 0.75rem;
+        }
+        
+        /* Dashboard animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .dashboard-content > div {
+            animation: fadeInUp 0.5s ease-out;
+        }
+        
+        /* Enhanced tooltips */
+        #capacity-hover-tooltip {
+            backdrop-filter: blur(8px);
+            font-size: 11px;
+            line-height: 1.4;
+            max-width: 200px;
+            z-index: 9999;
+        }
+        
+        /* Touch drag helper */
+        #touch-drag-helper {
+            pointer-events: none;
+            backdrop-filter: blur(8px);
+            animation: fadeInUp 0.2s ease-out;
+        }
+        
+        /* Mobile responsiveness enhancements */
+        @media (max-width: 1024px) {
+            .dashboard-content .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .heatmap-chart-container canvas {
+                max-height: 300px;
+            }
+        }
+        
+        /* Optimization hints */
+        .optimization-hint {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .optimization-hint.warning { @apply bg-yellow-500; }
+        .optimization-hint.error { @apply bg-red-500; }
+        .optimization-hint.info { @apply bg-blue-500; }
+        
+        /* Capacity planning grid */
+        .planning-grid {
+            display: grid;
+            gap: 8px;
+            overflow-x: auto;
+            min-width: 100%;
+        }
+        
+        .planning-grid-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: white;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .team-member-row {
+            display: grid;
+            grid-template-columns: 200px repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .team-member-info {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+        }
+        
+        /* Interactive elements */
+        .draggable {
+            cursor: grab;
+        }
+        
+        .draggable:active {
+            cursor: grabbing;
+        }
+        
+        /* Utilization indicators */
+        .utilization-excellent { @apply bg-green-100 text-green-800 border-green-200; }
+        .utilization-good { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .utilization-warning { @apply bg-orange-100 text-orange-800 border-orange-200; }
+        .utilization-danger { @apply bg-red-100 text-red-800 border-red-200; }
+        
+        /* Forecast chart styles */
+        .forecast-chart {
+            position: relative;
+            height: 300px;
+        }
+        
+        .forecast-insight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        
+        /* Animation for loading states */
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        /* Responsive adjustments for capacity planning */
+        @media (max-width: 768px) {
+            .capacity-cell {
+                min-height: 50px;
+                font-size: 0.875rem;
+            }
+            
+            .team-member-info {
+                position: static;
+            }
+            
+            .planning-grid {
+                font-size: 0.875rem;
+            }
+        }
+        
+        /* Dark mode support for capacity features */
+        @media (prefers-color-scheme: dark) {
+            .capacity-cell {
+                border-color: #374151;
+                background-color: #1f2937;
+                color: #f9fafb;
+            }
+            
+            .capacity-cell:hover {
+                background-color: #374151;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Main Application Container -->
+    <div x-data="sprintApp()" x-cloak class="container mx-auto px-4 py-6">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Product Manager LS</h1>
+                    <p class="text-gray-600 mt-1">Sprint Management & Capacity Planning</p>
+                </div>
+                <div class="flex space-x-2">
+                    <button @click="showCreateSprintModal = true" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Create Sprint
+                    </button>
+                    <button @click="showCreateWorkStreamModal = true" 
+                            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Create Work Stream
+                    </button>
+                    <button @click="showCreateReleaseModal = true" 
+                            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Create Release
+                    </button>
+                    <button @click="exportData()" 
+                            class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Export Data
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="mb-6">
+            <div class="border-b border-gray-200">
+                <ul class="flex space-x-8">
+                    <li>
+                        <button @click="currentView = 'sprints'" 
+                                :class="currentView === 'sprints' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                            Sprints
+                        </button>
+                    </li>
+                    <li>
+                        <button @click="currentView = 'calendar'" 
+                                :class="currentView === 'calendar' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                            Calendar View
+                        </button>
+                    </li>
+                    <li>
+                        <button @click="currentView = 'workstreams'" 
+                                :class="currentView === 'workstreams' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                            Work Streams
+                        </button>
+                    </li>
+                    <li>
+                        <button @click="currentView = 'capacity'" 
+                                :class="currentView === 'capacity' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                            Capacity Planning
+                        </button>
+                    </li>
+                    <li>
+                        <button @click="currentView = 'team'" 
+                                :class="currentView === 'team' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                            Team Management
+                        </button>
+                    </li>
+                    <li>
+                        <button @click="currentView = 'releases'" 
+                                :class="currentView === 'releases' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                            Release Management
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Sprint List View -->
+        <div x-show="currentView === 'sprints'" class="space-y-4">
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <template x-for="sprint in sprints" :key="sprint.id">
+                    <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-semibold text-gray-900" x-text="sprint.name"></h3>
+                            <span :class="`sprint-type-${sprint.type.toLowerCase().replace(' ', '-')} px-2 py-1 text-xs font-medium rounded border`" 
+                                  x-text="sprint.type"></span>
+                        </div>
+                        
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <div class="flex justify-between">
+                                <span>Duration:</span>
+                                <span x-text="`${sprint.duration} weeks`"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Start Date:</span>
+                                <span x-text="formatDate(sprint.startDate)"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>End Date:</span>
+                                <span x-text="formatDate(sprint.endDate)"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Status:</span>
+                                <span x-text="getSprintStatus(sprint)"></span>
+                            </div>
+                        </div>
+
+                        <!-- Team Assignment Summary -->
+                        <div class="mt-4" x-data="{ teamCapacity: getTeamSprintCapacity(sprint.id) }">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-medium text-gray-700">Team Capacity</span>
+                                <span class="text-xs text-gray-500" x-text="`${Math.round(teamCapacity.totalCapacity)} pts (${teamCapacity.memberCapacities.length} members)`"></span>
+                            </div>
+                            <div class="capacity-bar">
+                                <div class="capacity-fill" 
+                                     :class="teamCapacity.utilizationPercentage > 95 ? 'capacity-over' : teamCapacity.utilizationPercentage > 85 ? 'capacity-high' : 'capacity-normal'"
+                                     :style="`width: ${Math.min(teamCapacity.utilizationPercentage, 100)}%`"></div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="mt-4 flex space-x-2">
+                            <button @click="editSprint(sprint)" 
+                                    class="flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                Edit
+                            </button>
+                            <button @click="viewSprintCalendar(sprint)" 
+                                    class="flex-1 bg-gray-50 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                View Calendar
+                            </button>
+                            <button @click="deleteSprint(sprint.id)" 
+                                    class="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                Delete
+                            </button>
+                        </div>
+                        <!-- Work Stream Tags -->
+                        <div x-show="getSprintWorkStreams(sprint).length > 0" class="mt-3 flex flex-wrap gap-1">
+                            <template x-for="workStream in getSprintWorkStreams(sprint)" :key="workStream.id">
+                                <span class="workstream-tag text-white text-xs" 
+                                      :style="`background-color: ${workStream.color}`"
+                                      x-text="workStream.name"></span>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Empty State -->
+            <div x-show="sprints.length === 0" class="text-center py-12">
+                <div class="max-w-sm mx-auto">
+                    <div class="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No Sprints Created</h3>
+                    <p class="text-gray-500 mb-4">Get started by creating your first sprint to begin planning your development cycles.</p>
+                    <button @click="showCreateSprintModal = true" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Create Your First Sprint
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar View -->
+        <div x-show="currentView === 'calendar'" class="space-y-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900">Sprint Calendar</h2>
+                    <div class="flex items-center space-x-4">
+                        <select x-model="selectedSprintId" @change="loadSprintCalendar()" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="">Select a Sprint</option>
+                            <template x-for="sprint in sprints" :key="sprint.id">
+                                <option :value="sprint.id" x-text="sprint.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div x-show="selectedSprintId && calendarDays.length > 0" class="grid grid-cols-7 gap-1">
+                    <!-- Day Headers -->
+                    <div class="text-center font-medium text-gray-700 p-2">Sun</div>
+                    <div class="text-center font-medium text-gray-700 p-2">Mon</div>
+                    <div class="text-center font-medium text-gray-700 p-2">Tue</div>
+                    <div class="text-center font-medium text-gray-700 p-2">Wed</div>
+                    <div class="text-center font-medium text-gray-700 p-2">Thu</div>
+                    <div class="text-center font-medium text-gray-700 p-2">Fri</div>
+                    <div class="text-center font-medium text-gray-700 p-2">Sat</div>
+
+                    <!-- Calendar Days -->
+                    <template x-for="day in calendarDays" :key="day.date">
+                        <div class="calendar-day"
+                             :class="{
+                                 'weekend': day.isWeekend,
+                                 'sprint-boundary': day.isSprintStart || day.isSprintEnd,
+                                 'bg-blue-50': day.isInSprint,
+                                 'text-gray-400': !day.isInSprint
+                             }">
+                            <div class="font-medium" x-text="day.dayNumber"></div>
+                            <div x-show="day.isInSprint && day.capacity > 0" class="mt-1">
+                                <div class="text-xs text-gray-600" x-text="`${day.capacity} pts`"></div>
+                                <div class="capacity-bar mt-1">
+                                    <div class="capacity-fill capacity-normal" 
+                                         :style="`width: ${Math.min(day.capacity / 8 * 100, 100)}%`"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- No Sprint Selected -->
+                <div x-show="!selectedSprintId" class="text-center py-8 text-gray-500">
+                    <p>Select a sprint to view its calendar</p>
+                </div>
+
+                <!-- No Calendar Data -->
+                <div x-show="selectedSprintId && calendarDays.length === 0" class="text-center py-8 text-gray-500">
+                    <p>No calendar data available for selected sprint</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Work Streams View -->
+        <div x-show="currentView === 'workstreams'" class="space-y-6">
+            <!-- Work Stream Management Header -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900">Work Stream Management</h2>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-sm text-gray-500" x-text="`${workStreams.filter(ws => ws.isActive).length} active streams`"></span>
+                    </div>
+                </div>
+
+                <!-- Work Stream Analytics -->
+                <div x-data="{ stats: getWorkStreamStatistics() }" class="mb-6">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-purple-600" x-text="stats.active"></div>
+                            <div class="text-sm text-gray-600">Active Streams</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600" x-text="stats.totalAssociations.sprints"></div>
+                            <div class="text-sm text-gray-600">Sprint Associations</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600" x-text="stats.colorsUsed"></div>
+                            <div class="text-sm text-gray-600">Colors Used</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-orange-600" x-text="Math.round(stats.utilizationAnalysis?.distributionScore || 0)"></div>
+                            <div class="text-sm text-gray-600">Distribution Score</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Utilization Insights -->
+                    <div x-show="stats.utilizationAnalysis?.mostUsed" class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Utilization Insights</h4>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div x-show="stats.utilizationAnalysis.mostUsed">
+                                Most used: <span class="font-medium" x-text="stats.utilizationAnalysis.mostUsed?.workStream?.name"></span>
+                                (<span x-text="stats.utilizationAnalysis.mostUsed?.totalAssociations"></span> associations)
+                            </div>
+                            <div x-show="stats.utilizationAnalysis.leastUsed">
+                                Least used: <span class="font-medium" x-text="stats.utilizationAnalysis.leastUsed?.workStream?.name"></span>
+                                (<span x-text="stats.utilizationAnalysis.leastUsed?.totalAssociations"></span> associations)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Color Legend -->
+                <div x-show="workStreams.filter(ws => ws.isActive).length > 0" class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">Color Legend</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <template x-for="workStream in workStreams.filter(ws => ws.isActive)" :key="workStream.id">
+                            <div class="workstream-legend">
+                                <div class="workstream-color-dot" :style="`background-color: ${workStream.color}`"></div>
+                                <span x-text="workStream.name"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Work Stream Grid -->
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <template x-for="workStream in workStreams.filter(ws => ws.isActive)" :key="workStream.id">
+                    <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                                <div class="workstream-color-dot" :style="`background-color: ${workStream.color}`"></div>
+                                <h3 class="text-lg font-semibold text-gray-900" x-text="workStream.name"></h3>
+                            </div>
+                            <div class="flex space-x-1">
+                                <button @click="editWorkStream(workStream)" 
+                                        class="text-gray-400 hover:text-gray-600 p-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                                <button @click="deleteWorkStream(workStream.id)" 
+                                        class="text-gray-400 hover:text-red-600 p-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div x-show="workStream.description" class="mb-3">
+                            <p class="text-sm text-gray-600" x-text="workStream.description"></p>
+                        </div>
+
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <div class="flex justify-between">
+                                <span>Associated Sprints:</span>
+                                <span x-text="workStream.sprints ? workStream.sprints.length : 0"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Associated Releases:</span>
+                                <span x-text="workStream.releases ? workStream.releases.length : 0"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Created:</span>
+                                <span x-text="formatDate(workStream.createdAt)"></span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Empty State -->
+            <div x-show="workStreams.filter(ws => ws.isActive).length === 0" class="text-center py-12">
+                <div class="max-w-sm mx-auto">
+                    <div class="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v6a4 4 0 01-4 4H5a2 2 0 00-2 2v2a2 2 0 002 2h12a2 2 0 002-2v-2a2 2 0 00-2-2h-2a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4H7z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No Work Streams Created</h3>
+                    <p class="text-gray-500 mb-4">Create work streams to organize and categorize your development work with visual color coding.</p>
+                    <button @click="showCreateWorkStreamModal = true" 
+                            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Create Your First Work Stream
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Capacity Planning View -->
+        <div x-show="currentView === 'capacity'" class="space-y-6">
+            <!-- Enhanced Capacity Dashboard Header -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900">Advanced Capacity Planning</h2>
+                    <div class="flex items-center space-x-4">
+                        <select x-model="capacityViewMode" @change="switchCapacityView()" 
+                                class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="overview">Overview</option>
+                            <option value="dashboard">Visual Dashboard</option>
+                            <option value="planner">Interactive Planner</option>
+                            <option value="analytics">Advanced Analytics</option>
+                        </select>
+                        <button @click="openCapacityOptimization()" 
+                                class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            Optimize Capacity
+                        </button>
+                        <button @click="exportCapacityData()" 
+                                class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            Export Data
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Capacity KPIs -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                        <div class="text-2xl font-bold text-blue-600" x-text="capacityMetrics.totalCapacity"></div>
+                        <div class="text-sm text-gray-600">Total Capacity</div>
+                        <div class="text-xs text-gray-500 mt-1" x-text="capacityMetrics.capacityTrend"></div>
+                    </div>
+                    <div class="text-center p-4 bg-green-50 rounded-lg">
+                        <div class="text-2xl font-bold text-green-600" x-text="capacityMetrics.avgUtilization + '%'"></div>
+                        <div class="text-sm text-gray-600">Avg Utilization</div>
+                        <div class="text-xs text-gray-500 mt-1" x-text="getUtilizationStatus(capacityMetrics.avgUtilization)"></div>
+                    </div>
+                    <div class="text-center p-4 bg-orange-50 rounded-lg">
+                        <div class="text-2xl font-bold text-orange-600" x-text="capacityMetrics.overallocatedDays"></div>
+                        <div class="text-sm text-gray-600">At Risk Days</div>
+                        <div class="text-xs text-gray-500 mt-1">Over 95% utilization</div>
+                    </div>
+                    <div class="text-center p-4 bg-purple-50 rounded-lg">
+                        <div class="text-2xl font-bold text-purple-600" x-text="capacityMetrics.efficiency + '%'"></div>
+                        <div class="text-sm text-gray-600">Team Efficiency</div>
+                        <div class="text-xs text-gray-500 mt-1" x-text="getEfficiencyStatus(capacityMetrics.efficiency)"></div>
+                    </div>
+                    <div class="text-center p-4 bg-red-50 rounded-lg">
+                        <div class="text-2xl font-bold text-red-600" x-text="capacityMetrics.bottlenecks"></div>
+                        <div class="text-sm text-gray-600">Bottlenecks</div>
+                        <div class="text-xs text-gray-500 mt-1">Critical path issues</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overview Mode -->
+            <div x-show="capacityViewMode === 'overview'" class="space-y-6">
+                <!-- Sprint Capacity Cards -->
+                <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <template x-for="sprint in sprints" :key="sprint.id">
+                        <div class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-medium text-gray-900" x-text="sprint.name"></h3>
+                                <button @click="openSprintCapacityDetails(sprint.id)" 
+                                        class="text-blue-600 hover:text-blue-800 text-sm">
+                                    Details →
+                                </button>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <!-- Capacity Overview -->
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-600">Team Capacity:</span>
+                                        <span class="font-medium" x-text="`${getTeamSprintCapacity(sprint.id).totalCapacity} pts`"></span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-600">Utilization:</span>
+                                        <span class="font-medium" 
+                                              :class="getUtilizationColorClass(getTeamSprintCapacity(sprint.id).utilizationPercentage)"
+                                              x-text="`${getTeamSprintCapacity(sprint.id).utilizationPercentage}%`"></span>
+                                    </div>
+                                    
+                                    <!-- Visual Capacity Bar -->
+                                    <div class="capacity-bar relative">
+                                        <div class="capacity-fill transition-all duration-300" 
+                                             :class="getCapacityBarClass(getTeamSprintCapacity(sprint.id).utilizationPercentage)"
+                                             :style="`width: ${Math.min(getTeamSprintCapacity(sprint.id).utilizationPercentage, 100)}%`"></div>
+                                        <div class="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-700"
+                                             x-text="`${getTeamSprintCapacity(sprint.id).memberCapacities.length} members`"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Team Members Mini-View -->
+                                <div class="border-t pt-3">
+                                    <div class="flex items-center justify-between text-xs text-gray-600 mb-2">
+                                        <span>Team Members</span>
+                                        <span x-text="`${getAvailableMembers(sprint.id).length} available`"></span>
+                                    </div>
+                                    <div class="flex -space-x-1">
+                                        <template x-for="member in getAvailableMembers(sprint.id).slice(0, 6)" :key="member.id">
+                                            <div class="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium"
+                                                 :class="getMemberUtilizationColor(member.id, sprint.id)"
+                                                 :title="`${member.name} - ${getMemberCapacityForSprint(member.id, sprint.id)}pts`"
+                                                 x-text="member.name.charAt(0)"></div>
+                                        </template>
+                                        <div x-show="getAvailableMembers(sprint.id).length > 6" 
+                                             class="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs"
+                                             x-text="`+${getAvailableMembers(sprint.id).length - 6}`"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="flex space-x-2 pt-2">
+                                    <button @click="planSprintCapacity(sprint.id)" 
+                                            class="flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                        Plan Capacity
+                                    </button>
+                                    <button @click="viewSprintAnalytics(sprint.id)" 
+                                            class="flex-1 bg-green-50 text-green-600 hover:bg-green-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                        Analytics
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Team Capacity Heatmap -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Team Capacity Heatmap</h3>
+                        <div class="flex items-center space-x-2">
+                            <select x-model="heatmapTimeframe" @change="updateCapacityHeatmap()" 
+                                    class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                                <option value="current-sprint">Current Sprint</option>
+                                <option value="next-3-sprints">Next 3 Sprints</option>
+                                <option value="quarter">This Quarter</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="capacityHeatmapContainer" class="overflow-auto">
+                        <!-- Heatmap will be generated here -->
+                    </div>
+                </div>
+
+                <!-- No Sprints -->
+                <div x-show="sprints.length === 0" class="bg-white rounded-lg shadow-md p-8 text-center">
+                    <div class="max-w-sm mx-auto">
+                        <div class="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Sprints Available</h3>
+                        <p class="text-gray-500 mb-4">Create sprints to start planning team capacity and workload allocation.</p>
+                        <button @click="showCreateSprintModal = true" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                            Create Your First Sprint
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual Dashboard Mode -->
+            <div x-show="capacityViewMode === 'dashboard'" class="space-y-6">
+                <div id="capacityDashboardContainer" class="min-h-[600px]">
+                    <!-- Advanced dashboard will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Interactive Planner Mode -->
+            <div x-show="capacityViewMode === 'planner'" class="space-y-6">
+                <div id="capacityPlannerContainer" class="min-h-[600px]">
+                    <!-- Interactive planner will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Advanced Analytics Mode -->
+            <div x-show="capacityViewMode === 'analytics'" class="space-y-6">
+                <!-- Capacity Forecasting -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Capacity Forecasting</h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <canvas id="capacityForecastChart" width="400" height="200"></canvas>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <h5 class="text-sm font-medium text-blue-900 mb-2">Forecast Insights</h5>
+                                <div class="text-sm text-blue-700 space-y-1">
+                                    <div>Predicted capacity trend: <span class="font-medium" x-text="forecastData.trend"></span></div>
+                                    <div>Confidence level: <span class="font-medium" x-text="forecastData.confidence + '%'"></span></div>
+                                    <div>Recommended actions: <span class="font-medium" x-text="forecastData.recommendations.length + ' items'"></span></div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <template x-for="rec in forecastData.recommendations.slice(0, 3)" :key="rec">
+                                    <div class="text-sm text-gray-600 flex items-start space-x-2">
+                                        <span class="text-orange-500 mt-1">•</span>
+                                        <span x-text="rec"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Team Performance Metrics -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">Team Velocity Trends</h4>
+                        <canvas id="velocityTrendChart" width="400" height="200"></canvas>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h4 class="text-lg font-medium text-gray-900 mb-4">Capacity Utilization Distribution</h4>
+                        <canvas id="utilizationDistributionChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Bottleneck Analysis -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Bottleneck Analysis</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <template x-for="bottleneck in bottleneckAnalysis" :key="bottleneck.type">
+                            <div class="p-4 border border-gray-200 rounded-lg">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <div class="w-3 h-3 rounded-full" :class="getBottleneckColor(bottleneck.severity)"></div>
+                                    <span class="text-sm font-medium text-gray-900" x-text="bottleneck.type"></span>
+                                </div>
+                                <div class="text-sm text-gray-600 mb-2" x-text="bottleneck.description"></div>
+                                <div class="text-xs text-gray-500">
+                                    Impact: <span class="font-medium" x-text="bottleneck.impact"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Management View -->
+        <div x-show="currentView === 'team'" class="space-y-6">
+            <!-- Team Header -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-900">Team Management</h2>
+                        <p class="text-gray-600 mt-1">Manage team members, roles, and capacity</p>
+                    </div>
+                    <button @click="showCreateTeamMemberModal = true" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Add Team Member
+                    </button>
+                </div>
+
+                <!-- Team Statistics -->
+                <div class="mb-6" x-data="{ stats: getTeamStatistics() }">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600" x-text="stats.active"></div>
+                            <div class="text-sm text-gray-600">Active Members</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600" x-text="Object.keys(stats.roleDistribution).filter(role => stats.roleDistribution[role] > 0).length"></div>
+                            <div class="text-sm text-gray-600">Represented Roles</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-orange-600" x-text="stats.averageCapacity"></div>
+                            <div class="text-sm text-gray-600">Avg. Capacity</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-purple-600" x-text="stats.capacityAnalysis?.totalCapacity || 0"></div>
+                            <div class="text-sm text-gray-600">Total Capacity</div>
+                        </div>
+                    </div>
+
+                    <!-- Team Analytics -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <!-- Capacity Analysis -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Capacity Analysis</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span>High Capacity Members:</span>
+                                    <span class="font-medium" x-text="stats.capacityAnalysis?.highCapacityMembers || 0"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Low Capacity Members:</span>
+                                    <span class="font-medium" x-text="stats.capacityAnalysis?.lowCapacityMembers || 0"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Capacity Variation:</span>
+                                    <span class="font-medium" x-text="(stats.capacityAnalysis?.capacityVariation || 0) + ' pts'"></span>
+                                </div>
+                            </div>
+                            <!-- Capacity Recommendations -->
+                            <div x-show="stats.capacityAnalysis?.recommendations?.length > 0" class="mt-3">
+                                <h5 class="text-xs font-medium text-gray-600 mb-1">Recommendations:</h5>
+                                <template x-for="rec in stats.capacityAnalysis.recommendations" :key="rec">
+                                    <div class="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded mb-1" x-text="rec"></div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Team Balance -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Team Balance</h4>
+                            <div class="mb-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm">Balance Score:</span>
+                                    <span class="font-medium text-lg" x-text="stats.teamBalance?.balanceScore || 0"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                         :style="`width: ${stats.teamBalance?.balanceScore || 0}%`"></div>
+                                </div>
+                            </div>
+                            <!-- Team Risks -->
+                            <div x-show="stats.teamBalance?.risks?.length > 0" class="mt-2">
+                                <h5 class="text-xs font-medium text-gray-600 mb-1">Risks:</h5>
+                                <template x-for="risk in stats.teamBalance.risks.slice(0, 2)" :key="risk">
+                                    <div class="text-xs text-red-700 bg-red-50 px-2 py-1 rounded mb-1" x-text="risk"></div>
+                                </template>
+                            </div>
+                            <!-- Team Strengths -->
+                            <div x-show="stats.teamBalance?.strengths?.length > 0" class="mt-2">
+                                <h5 class="text-xs font-medium text-gray-600 mb-1">Strengths:</h5>
+                                <template x-for="strength in stats.teamBalance.strengths.slice(0, 2)" :key="strength">
+                                    <div class="text-xs text-green-700 bg-green-50 px-2 py-1 rounded mb-1" x-text="strength"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Team Members Grid -->
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <template x-for="member in getActiveTeamMembers()" :key="member.id">
+                    <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900" x-text="member.name"></h3>
+                                <span class="text-xs px-2 py-1 rounded border font-medium"
+                                      :class="getRoleClass(member.role)"
+                                      x-text="member.role"></span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <span x-show="hasCurrentTimeOff(member)" class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                                    On Leave
+                                </span>
+                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full" 
+                                      x-text="`${member.defaultCapacity} pts`"></span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Email:</span>
+                                <span class="truncate ml-2" x-text="member.email || 'Not provided'"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Default Capacity:</span>
+                                <span x-text="`${member.defaultCapacity} points/sprint`"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Time Off:</span>
+                                <span x-text="`${member.timeOff.length} period(s)`"></span>
+                            </div>
+                        </div>
+
+                        <!-- Time Off List -->
+                        <div x-show="member.timeOff.length > 0" class="mt-3">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Current Time Off:</h4>
+                            <template x-for="timeOff in member.timeOff.slice(0, 2)" :key="timeOff.id">
+                                <div class="flex items-center justify-between text-xs bg-gray-50 p-2 rounded mb-1">
+                                    <span x-text="formatTimeOffPeriod(timeOff)"></span>
+                                    <button @click="removeTimeOff(member.id, timeOff.id)" 
+                                            class="text-red-600 hover:text-red-800">
+                                        ✕
+                                    </button>
+                                </div>
+                            </template>
+                            <div x-show="member.timeOff.length > 2" class="text-xs text-gray-500">
+                                And <span x-text="member.timeOff.length - 2"></span> more...
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="mt-4 flex space-x-2">
+                            <button @click="editTeamMember(member)" 
+                                    class="flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                Edit
+                            </button>
+                            <button @click="openTimeOffModal(member.id)" 
+                                    class="flex-1 bg-green-50 text-green-600 hover:bg-green-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                Add Time Off
+                            </button>
+                            <button @click="deleteTeamMember(member.id)" 
+                                    class="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                Deactivate
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Empty State -->
+            <div x-show="getActiveTeamMembers().length === 0" class="text-center py-12">
+                <div class="max-w-sm mx-auto">
+                    <div class="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 0a6 6 0 01-2.25-4.35"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No Team Members</h3>
+                    <p class="text-gray-500 mb-4">Get started by adding your first team member to begin capacity planning.</p>
+                    <button @click="showCreateTeamMemberModal = true" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Add Your First Team Member
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Release Management View -->
+        <div x-show="currentView === 'releases'" class="space-y-6">
+            <!-- Release Header -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-900">Release Management</h2>
+                        <p class="text-gray-600 mt-1">Plan and track product releases with go/no-go decisions</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-sm text-gray-500" x-text="`${releases.length} total releases`"></span>
+                    </div>
+                </div>
+
+                <!-- Release Statistics -->
+                <div class="mb-6" x-data="{ stats: getReleaseStatistics() }">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-yellow-600" x-text="stats.planning"></div>
+                            <div class="text-sm text-gray-600">Planning</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600" x-text="stats.inProgress"></div>
+                            <div class="text-sm text-gray-600">In Progress</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600" x-text="stats.go"></div>
+                            <div class="text-sm text-gray-600">Go</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-red-600" x-text="stats.noGo"></div>
+                            <div class="text-sm text-gray-600">No-Go</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-purple-600" x-text="stats.released"></div>
+                            <div class="text-sm text-gray-600">Released</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Insights -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Upcoming Releases</h4>
+                            <div class="text-2xl font-bold text-orange-600" x-text="stats.upcoming"></div>
+                            <div class="text-sm text-gray-600">releases pending go/no-go</div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Average Readiness</h4>
+                            <div class="text-2xl font-bold text-indigo-600" x-text="stats.averageReadiness + '%'"></div>
+                            <div class="text-sm text-gray-600">across active releases</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Release Grid -->
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <template x-for="release in releases" :key="release.id">
+                    <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-semibold text-gray-900" x-text="release.name"></h3>
+                            <span :class="getReleaseStatusClass(release.status)" 
+                                  class="px-2 py-1 text-xs font-medium rounded border"
+                                  x-text="release.status"></span>
+                        </div>
+                        
+                        <div x-show="release.description" class="mb-3">
+                            <p class="text-sm text-gray-600" x-text="release.description"></p>
+                        </div>
+
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <div class="flex justify-between">
+                                <span>Go/No-Go Date:</span>
+                                <span x-text="formatDate(release.goNoGoDate)"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Production Date:</span>
+                                <span x-text="formatDate(release.productionDate)"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Associated Sprints:</span>
+                                <span x-text="release.sprints ? release.sprints.length : 0"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Work Streams:</span>
+                                <span x-text="release.workStreams ? release.workStreams.length : 0"></span>
+                            </div>
+                        </div>
+
+                        <!-- Release Readiness Indicator -->
+                        <div class="mt-4" x-data="{ readiness: getReleaseReadiness(release.id) }">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-medium text-gray-700">Readiness</span>
+                                <span class="text-xs text-gray-500" x-text="readiness ? readiness.readinessScore + '%' : 'N/A'"></span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="h-2 rounded-full transition-all duration-300" 
+                                     :class="getReadinessClass(readiness ? readiness.readinessScore : 0)"
+                                     :style="`width: ${readiness ? readiness.readinessScore : 0}%`"></div>
+                            </div>
+                        </div>
+
+                        <!-- Work Stream Tags -->
+                        <div x-show="getReleaseWorkStreams(release).length > 0" class="mt-3 flex flex-wrap gap-1">
+                            <template x-for="workStream in getReleaseWorkStreams(release).slice(0, 3)" :key="workStream.id">
+                                <span class="workstream-tag text-white text-xs" 
+                                      :style="`background-color: ${workStream.color}`"
+                                      x-text="workStream.name"></span>
+                            </template>
+                            <span x-show="getReleaseWorkStreams(release).length > 3" 
+                                  class="text-xs text-gray-500"
+                                  x-text="'+' + (getReleaseWorkStreams(release).length - 3) + ' more'"></span>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="mt-4 flex space-x-2">
+                            <button @click="editRelease(release)" 
+                                    class="flex-1 bg-green-50 text-green-600 hover:bg-green-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                Edit
+                            </button>
+                            <button @click="viewReleaseDetails(release)" 
+                                    class="flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                Details
+                            </button>
+                            <button @click="deleteRelease(release.id)" 
+                                    class="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded text-sm font-medium transition-colors">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Empty State -->
+            <div x-show="releases.length === 0" class="text-center py-12">
+                <div class="max-w-sm mx-auto">
+                    <div class="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No Releases Created</h3>
+                    <p class="text-gray-500 mb-4">Create your first release to start planning go/no-go decisions and production deployments.</p>
+                    <button @click="showCreateReleaseModal = true" 
+                            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Create Your First Release
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create/Edit Sprint Modal -->
+        <div x-show="showCreateSprintModal" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4" 
+                        x-text="editingSprintId ? 'Edit Sprint' : 'Create New Sprint'"></h3>
+                    
+                    <form @submit.prevent="saveSprint()" class="space-y-4">
+                        <!-- Sprint Name -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Sprint Name</label>
+                            <input type="text" 
+                                   x-model="sprintForm.name"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="e.g., Sprint 2024-1">
+                        </div>
+
+                        <!-- Start Date -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                            <input type="date" 
+                                   x-model="sprintForm.startDate"
+                                   @change="calculateEndDate()"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <!-- Duration -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                            <select x-model="sprintForm.duration" 
+                                    @change="calculateEndDate()"
+                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="2">2 weeks</option>
+                                <option value="3">3 weeks</option>
+                            </select>
+                        </div>
+
+                        <!-- Sprint Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Sprint Type</label>
+                            <select x-model="sprintForm.type" 
+                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="Development">Development</option>
+                                <option value="Non-Functional">Non-Functional</option>
+                                <option value="Release">Release</option>
+                                <option value="Hardening">Hardening</option>
+                            </select>
+                        </div>
+
+                        <!-- Work Streams -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Work Streams</label>
+                            <div x-show="workStreams.filter(ws => ws.isActive).length > 0" class="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2">
+                                <template x-for="workStream in workStreams.filter(ws => ws.isActive)" :key="workStream.id">
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" 
+                                               :checked="sprintForm.workStreams.includes(workStream.id)"
+                                               @change="toggleWorkStreamSelection(workStream.id)"
+                                               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <div class="workstream-color-dot" :style="`background-color: ${workStream.color}`"></div>
+                                        <span class="text-sm" x-text="workStream.name"></span>
+                                    </label>
+                                </template>
+                            </div>
+                            <div x-show="workStreams.filter(ws => ws.isActive).length === 0" class="text-sm text-gray-500 italic">
+                                No work streams available. Create work streams first to associate them with sprints.
+                            </div>
+                        </div>
+
+                        <!-- End Date (calculated) -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                            <input type="date" 
+                                   x-model="sprintForm.endDate"
+                                   readonly
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50">
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex space-x-3 mt-6">
+                            <button type="submit" 
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                <span x-text="editingSprintId ? 'Update Sprint' : 'Create Sprint'"></span>
+                            </button>
+                            <button type="button" 
+                                    @click="closeSprintModal()"
+                                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create/Edit Work Stream Modal -->
+        <div x-show="showCreateWorkStreamModal" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4" 
+                        x-text="editingWorkStreamId ? 'Edit Work Stream' : 'Create New Work Stream'"></h3>
+                    
+                    <form @submit.prevent="saveWorkStream()" class="space-y-4">
+                        <!-- Work Stream Name -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Work Stream Name</label>
+                            <input type="text" 
+                                   x-model="workStreamForm.name"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                   placeholder="e.g., User Authentication, Payment Processing">
+                        </div>
+
+                        <!-- Description -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                            <textarea x-model="workStreamForm.description"
+                                      rows="3"
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                      placeholder="Brief description of this work stream..."></textarea>
+                        </div>
+
+                        <!-- Color Selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                            <div class="grid grid-cols-6 gap-2 p-2 border border-gray-300 rounded-md">
+                                <template x-for="colorOption in availableColors" :key="colorOption.color">
+                                    <button type="button"
+                                            @click="workStreamForm.color = colorOption.color"
+                                            :class="[
+                                                'color-picker-option',
+                                                workStreamForm.color === colorOption.color ? 'selected' : '',
+                                                colorOption.isUsed && workStreamForm.color !== colorOption.color ? 'used' : ''
+                                            ]"
+                                            :style="`background-color: ${colorOption.color}`"
+                                            :title="colorOption.name + (colorOption.isUsed ? ' (In Use)' : '')">
+                                    </button>
+                                </template>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Colors marked as used are already assigned to other work streams
+                            </p>
+                        </div>
+
+                        <!-- Preview -->
+                        <div x-show="workStreamForm.name" class="border border-gray-200 rounded-md p-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Preview</label>
+                            <div class="flex items-center space-x-2">
+                                <div class="workstream-color-dot" :style="`background-color: ${workStreamForm.color}`"></div>
+                                <span class="workstream-tag text-white text-xs" 
+                                      :style="`background-color: ${workStreamForm.color}`"
+                                      x-text="workStreamForm.name"></span>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex space-x-3 mt-6">
+                            <button type="submit" 
+                                    class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                <span x-text="editingWorkStreamId ? 'Update Work Stream' : 'Create Work Stream'"></span>
+                            </button>
+                            <button type="button" 
+                                    @click="closeWorkStreamModal()"
+                                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create/Edit Team Member Modal -->
+        <div x-show="showCreateTeamMemberModal" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4" 
+                        x-text="editingTeamMemberId ? 'Edit Team Member' : 'Add New Team Member'"></h3>
+                    
+                    <form @submit.prevent="saveTeamMember()" class="space-y-4">
+                        <!-- Name -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <input type="text" 
+                                   x-model="teamMemberForm.name"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Enter full name">
+                        </div>
+
+                        <!-- Email -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" 
+                                   x-model="teamMemberForm.email"
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="email@company.com">
+                        </div>
+
+                        <!-- Role -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                            <select x-model="teamMemberForm.role" 
+                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <template x-for="role in getPredefinedRoles()" :key="role">
+                                    <option :value="role" x-text="role"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Default Capacity -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Default Capacity (points per sprint)</label>
+                            <input type="number" 
+                                   x-model="teamMemberForm.defaultCapacity"
+                                   min="0"
+                                   max="40"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="8">
+                            <p class="text-xs text-gray-500 mt-1">Typical range: 6-12 points per sprint</p>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex space-x-3 mt-6">
+                            <button type="submit" 
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                <span x-text="editingTeamMemberId ? 'Update Member' : 'Add Member'"></span>
+                            </button>
+                            <button type="button" 
+                                    @click="closeTeamMemberModal()"
+                                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Time Off Modal -->
+        <div x-show="showTimeOffModal" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Add Time Off</h3>
+                    
+                    <form @submit.prevent="addTimeOff()" class="space-y-4">
+                        <!-- Start Date -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                            <input type="date" 
+                                   x-model="timeOffForm.startDate"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <!-- End Date -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                            <input type="date" 
+                                   x-model="timeOffForm.endDate"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <!-- Reason -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Reason (Optional)</label>
+                            <input type="text" 
+                                   x-model="timeOffForm.reason"
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="e.g., Vacation, Sick Leave, Conference">
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex space-x-3 mt-6">
+                            <button type="submit" 
+                                    class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                Add Time Off
+                            </button>
+                            <button type="button" 
+                                    @click="closeTimeOffModal()"
+                                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create/Edit Release Modal -->
+        <div x-show="showCreateReleaseModal" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4" 
+                        x-text="editingReleaseId ? 'Edit Release' : 'Create New Release'"></h3>
+                    
+                    <form @submit.prevent="saveRelease()" class="space-y-4">
+                        <!-- Release Name -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Release Name</label>
+                            <input type="text" 
+                                   x-model="releaseForm.name"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                   placeholder="e.g., Mobile App v2.1, Q4 2024 Release">
+                        </div>
+
+                        <!-- Description -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                            <textarea x-model="releaseForm.description"
+                                      rows="3"
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                      placeholder="Brief description of this release..."></textarea>
+                        </div>
+
+                        <!-- Go/No-Go Date -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Go/No-Go Decision Date</label>
+                            <input type="date" 
+                                   x-model="releaseForm.goNoGoDate"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+
+                        <!-- Production Date -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Production Release Date</label>
+                            <input type="date" 
+                                   x-model="releaseForm.productionDate"
+                                   required
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+
+                        <!-- Status -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <select x-model="releaseForm.status" 
+                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                                <option value="Planning">Planning</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Go">Go</option>
+                                <option value="No-Go">No-Go</option>
+                                <option value="Released">Released</option>
+                            </select>
+                        </div>
+
+                        <!-- Associated Sprints -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Associated Sprints</label>
+                            <div x-show="sprints.length > 0" class="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2">
+                                <template x-for="sprint in sprints" :key="sprint.id">
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" 
+                                               :checked="releaseForm.sprints.includes(sprint.id)"
+                                               @change="toggleSprintSelection(sprint.id)"
+                                               class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                        <span class="text-sm" x-text="sprint.name"></span>
+                                        <span class="text-xs text-gray-500" x-text="'(' + sprint.type + ')'"></span>
+                                    </label>
+                                </template>
+                            </div>
+                            <div x-show="sprints.length === 0" class="text-sm text-gray-500 italic">
+                                No sprints available. Create sprints first to associate them with releases.
+                            </div>
+                        </div>
+
+                        <!-- Work Streams -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Work Streams</label>
+                            <div x-show="workStreams.filter(ws => ws.isActive).length > 0" class="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2">
+                                <template x-for="workStream in workStreams.filter(ws => ws.isActive)" :key="workStream.id">
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" 
+                                               :checked="releaseForm.workStreams.includes(workStream.id)"
+                                               @change="toggleReleaseWorkStreamSelection(workStream.id)"
+                                               class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                        <div class="workstream-color-dot" :style="`background-color: ${workStream.color}`"></div>
+                                        <span class="text-sm" x-text="workStream.name"></span>
+                                    </label>
+                                </template>
+                            </div>
+                            <div x-show="workStreams.filter(ws => ws.isActive).length === 0" class="text-sm text-gray-500 italic">
+                                No work streams available. Create work streams first to associate them with releases.
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex space-x-3 mt-6">
+                            <button type="submit" 
+                                    class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                <span x-text="editingReleaseId ? 'Update Release' : 'Create Release'"></span>
+                            </button>
+                            <button type="button" 
+                                    @click="closeReleaseModal()"
+                                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Release Details Modal -->
+        <div x-show="showReleaseDetailsModal" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            
+            <div class="relative top-10 mx-auto p-5 border max-w-4xl shadow-lg rounded-md bg-white">
+                <div class="mt-3" x-data="{ details: selectedReleaseDetails }">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-900" x-text="details?.release?.name || 'Release Details'"></h3>
+                        <button @click="closeReleaseDetailsModal()" 
+                                class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div x-show="details" class="space-y-6">
+                        <!-- Release Overview -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="text-sm font-medium text-gray-700 mb-2">Release Status</h4>
+                                <div class="text-lg font-semibold" :class="getReleaseStatusClass(details?.release?.status)" 
+                                     x-text="details?.release?.status"></div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="text-sm font-medium text-gray-700 mb-2">Readiness Score</h4>
+                                <div class="text-lg font-semibold" 
+                                     :class="getReadinessTextClass(details?.readinessScore || 0)"
+                                     x-text="(details?.readinessScore || 0) + '%'"></div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="text-sm font-medium text-gray-700 mb-2">Days to Go/No-Go</h4>
+                                <div class="text-lg font-semibold" 
+                                     :class="details?.daysToGoNoGo < 0 ? 'text-red-600' : details?.daysToGoNoGo <= 7 ? 'text-orange-600' : 'text-green-600'"
+                                     x-text="details?.daysToGoNoGo < 0 ? 'Past Due' : details?.daysToGoNoGo + ' days'"></div>
+                            </div>
+                        </div>
+
+                        <!-- Sprint Progress -->
+                        <div>
+                            <h4 class="text-lg font-medium text-gray-900 mb-3">Sprint Progress</h4>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                <div class="text-center">
+                                    <div class="text-xl font-bold text-blue-600" x-text="details?.sprints?.total || 0"></div>
+                                    <div class="text-sm text-gray-600">Total Sprints</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-xl font-bold text-green-600" x-text="details?.sprints?.completed || 0"></div>
+                                    <div class="text-sm text-gray-600">Completed</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-xl font-bold text-orange-600" x-text="details?.sprints?.active || 0"></div>
+                                    <div class="text-sm text-gray-600">Active</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-xl font-bold text-gray-600" x-text="details?.sprints?.upcoming || 0"></div>
+                                    <div class="text-sm text-gray-600">Upcoming</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Sprint List -->
+                            <div x-show="details?.sprints?.sprints?.length > 0" class="space-y-2">
+                                <template x-for="sprint in (details && details.sprints && details.sprints.sprints) || []" :key="sprint.id">
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                                        <div>
+                                            <span class="font-medium" x-text="sprint.name"></span>
+                                            <span class="text-sm text-gray-500 ml-2" x-text="'(' + sprint.type + ')'"></span>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-sm" x-text="formatDate(sprint.startDate) + ' - ' + formatDate(sprint.endDate)"></span>
+                                            <span :class="getSprintStatusClass(sprint.status)" 
+                                                  class="px-2 py-1 text-xs rounded"
+                                                  x-text="sprint.status"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Work Stream Progress -->
+                        <div x-show="details?.workStreams?.workStreams?.length > 0">
+                            <h4 class="text-lg font-medium text-gray-900 mb-3">Work Stream Progress</h4>
+                            <div class="space-y-3">
+                                <template x-for="workStream in (details && details.workStreams && details.workStreams.workStreams) || []" :key="workStream.id">
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="workstream-color-dot" :style="`background-color: ${workStream.color}`"></div>
+                                            <span class="font-medium" x-text="workStream.name"></span>
+                                        </div>
+                                        <div class="flex items-center space-x-4">
+                                            <span class="text-sm text-gray-600" 
+                                                  x-text="workStream.completedSprints + '/' + workStream.totalSprints + ' sprints'"></span>
+                                            <div class="w-20 bg-gray-200 rounded-full h-2">
+                                                <div class="h-2 rounded-full" 
+                                                     :class="getReadinessClass(workStream.completionPercentage)"
+                                                     :style="`width: ${workStream.completionPercentage}%`"></div>
+                                            </div>
+                                            <span class="text-sm font-medium" x-text="workStream.completionPercentage + '%'"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Recommendations -->
+                        <div x-show="details?.recommendations?.length > 0">
+                            <h4 class="text-lg font-medium text-gray-900 mb-3">Recommendations</h4>
+                            <div class="space-y-2">
+                                <template x-for="recommendation in (details && details.recommendations) || []" :key="recommendation">
+                                    <div class="flex items-start space-x-2 p-3 bg-blue-50 border border-blue-200 rounded">
+                                        <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <span class="text-sm text-blue-800" x-text="recommendation"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Close Button -->
+                        <div class="flex justify-end">
+                            <button @click="closeReleaseDetailsModal()" 
+                                    class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div x-show="loading" 
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 text-center">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <p class="text-gray-600">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div x-show="notification.show" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0 translate-y-2"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 translate-y-2"
+             class="fixed bottom-4 right-4 z-50">
+            <div :class="notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'" 
+                 class="text-white px-6 py-3 rounded-lg shadow-lg">
+                <p x-text="notification.message"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="src/storage/storage.js"></script>
+    <script src="src/storage/models.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    <script src="src/team/team-manager.js"></script>
+    <script src="src/team/capacity-tracker.js"></script>
+    <script src="src/workstreams/workstream-manager.js"></script>
+    <script src="src/releases/release-manager.js"></script>
+    <!-- Enhanced Capacity Planning -->
+    <script src="src/capacity/activity-modal.js"></script>
+    <script src="src/capacity/activity-capacity-cell.js"></script>
+    <script src="src/capacity/capacity-dashboard.js"></script>
+    <script src="src/capacity/capacity-planner.js"></script>
+    <script src="src/capacity/capacity-alpine-component.js"></script>
+    <script src="src/app.js"></script>
+    
+    <!-- Initialize Enhanced Capacity Dashboard -->
+    <script>
+        // Initialize dashboard when Alpine.js is ready
+        document.addEventListener('alpine:init', () => {
+            console.log('Alpine.js initialized - setting up capacity dashboard');
+            
+            // Add a small delay to ensure all scripts are loaded
+            setTimeout(() => {
+                console.log('Checking for capacity dashboard availability...');
+                console.log('window.capacityDashboardManager exists:', !!window.capacityDashboardManager);
+                console.log('window.capacityDashboardManager type:', typeof window.capacityDashboardManager);
+                console.log('initializeDashboard method exists:', !!(window.capacityDashboardManager && window.capacityDashboardManager.initializeDashboard));
+                
+                if (window.capacityDashboardManager && typeof window.capacityDashboardManager.initializeDashboard === 'function' && document.getElementById('capacityDashboardContainer')) {
+                    console.log('Initializing capacity dashboard...');
+                    const initialized = window.capacityDashboardManager.initializeDashboard('capacityDashboardContainer');
+                    if (initialized) {
+                        console.log('✓ Capacity dashboard initialized successfully');
+                    } else {
+                        console.warn('⚠ Failed to initialize capacity dashboard');
+                    }
+                } else {
+                    console.warn('⚠ Capacity dashboard not ready:', {
+                        dashboardManagerExists: !!window.capacityDashboardManager,
+                        methodExists: !!(window.capacityDashboardManager && window.capacityDashboardManager.initializeDashboard),
+                        containerExists: !!document.getElementById('capacityDashboardContainer')
+                    });
+                }
+                
+                // Initialize capacity planner if container exists
+                if (window.capacityPlannerManager && document.getElementById('capacityAllocation')) {
+                    console.log('Initializing capacity planner...');
+                    const plannerInitialized = window.capacityPlannerManager.initializePlanner('capacityAllocation');
+                    if (plannerInitialized) {
+                        console.log('✓ Capacity planner initialized successfully');
+                    } else {
+                        console.warn('⚠ Failed to initialize capacity planner');
+                    }
+                }
+            }, 100); // 100ms delay to ensure all scripts are loaded
+        });
+        
+        // Mobile-optimized viewport adjustments
+        function setupMobileViewport() {
+            const viewport = document.querySelector('meta[name="viewport"]');
+            if (viewport) {
+                viewport.setAttribute('content', 
+                    'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
+                );
+            }
+            
+            // Prevent iOS Safari bounce
+            document.addEventListener('touchmove', function(e) {
+                if (e.target.closest('.capacity-cell') && e.target.tagName !== 'INPUT') {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+            
+            // Prevent zoom on input focus for mobile
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                const inputs = document.querySelectorAll('input[type="number"]');
+                inputs.forEach(input => {
+                    input.addEventListener('focus', function() {
+                        this.style.fontSize = '16px';
+                    });
+                    input.addEventListener('blur', function() {
+                        this.style.fontSize = '';
+                    });
+                });
+            }
+        }
+        
+        // Enhanced error handling for capacity features
+        window.addEventListener('error', function(e) {
+            if (e.filename && (e.filename.includes('capacity-dashboard') || e.filename.includes('capacity-planner'))) {
+                console.error('Capacity feature error:', e.error);
+                // Show user-friendly error message
+                if (window.sprintApp && Alpine.$data(document.querySelector('[x-data="sprintApp()"]'))) {
+                    const app = Alpine.$data(document.querySelector('[x-data="sprintApp()"]'));
+                    if (app.showNotification) {
+                        app.showNotification('Capacity feature error. Please refresh the page.', 'error');
+                    }
+                }
+            }
+        });
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupMobileViewport);
+        } else {
+            setupMobileViewport();
+        }
+        
+        // Performance monitoring for capacity features
+        if (window.performance) {
+            window.addEventListener('load', () => {
+                setTimeout(() => {
+                    const perfData = window.performance.getEntriesByType('navigation')[0];
+                    console.log('📊 Page load performance:', {
+                        loadTime: Math.round(perfData.loadEventEnd - perfData.loadEventStart),
+                        domContentLoaded: Math.round(perfData.domContentLoadedEventEnd - perfData.navigationStart),
+                        totalTime: Math.round(perfData.loadEventEnd - perfData.navigationStart)
+                    });
+                }, 100);
+            });
+        }
+    </script>
+</body>
+</html>

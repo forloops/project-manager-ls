@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Manager LS - Performance Testing</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .test-header {
+            background: #059669;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .perf-test {
+            background: white;
+            margin: 15px 0;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .perf-metric {
+            display: inline-block;
+            margin: 10px 15px 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        .metric-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #059669;
+        }
+        .metric-label {
+            font-size: 0.9em;
+            color: #6b7280;
+        }
+        .perf-chart {
+            width: 100%;
+            height: 200px;
+            border: 1px solid #ddd;
+            margin: 15px 0;
+        }
+        .btn {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 1em;
+        }
+        .btn:hover {
+            background: #047857;
+        }
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #059669;
+            transition: width 0.3s;
+        }
+        .warning { color: #d97706; }
+        .error { color: #dc2626; }
+        .success { color: #059669; }
+        .test-results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="test-header">
+            <h1>Product Manager LS - Performance Testing</h1>
+            <p>Testing application performance, memory usage, and scalability</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="overall-progress" style="width: 0%"></div>
+            </div>
+            <p id="progress-text">Ready to start performance testing</p>
+        </div>
+        
+        <div class="test-controls">
+            <button class="btn" onclick="runAllPerformanceTests()">Run All Performance Tests</button>
+            <button class="btn" onclick="runLoadTest()">Load Test</button>
+            <button class="btn" onclick="runMemoryTest()">Memory Test</button>
+            <button class="btn" onclick="runStorageTest()">Storage Test</button>
+            <button class="btn" onclick="clearTestData()">Clear Test Data</button>
+        </div>
+        
+        <div id="performance-results"></div>
+        
+        <div class="test-results" id="summary-results">
+            <h3>Performance Summary</h3>
+            <p>Click "Run All Performance Tests" to begin comprehensive performance analysis</p>
+        </div>
+    </div>
+    
+    <!-- Load application dependencies -->
+    <script src="src/storage/storage.js"></script>
+    <script src="src/storage/models.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    
+    <script>
+        /**
+         * Performance Testing Framework
+         * Tests application performance under various load conditions
+         */
+        class PerformanceTestFramework {
+            constructor() {
+                this.results = document.getElementById('performance-results');
+                this.summaryEl = document.getElementById('summary-results');
+                this.progressEl = document.getElementById('overall-progress');
+                this.progressText = document.getElementById('progress-text');
+                
+                this.testResults = [];
+                this.currentTest = 0;
+                this.totalTests = 0;
+                
+                // Performance monitoring
+                this.performanceObserver = null;
+                this.memoryBaseline = null;
+                
+                this.initializePerformanceMonitoring();
+            }
+            
+            initializePerformanceMonitoring() {
+                // Get initial memory baseline
+                if (performance.memory) {
+                    this.memoryBaseline = {
+                        usedJSHeapSize: performance.memory.usedJSHeapSize,
+                        totalJSHeapSize: performance.memory.totalJSHeapSize,
+                        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+                    };
+                }
+                
+                // Setup performance observer
+                if ('PerformanceObserver' in window) {
+                    this.performanceObserver = new PerformanceObserver((list) => {
+                        for (const entry of list.getEntries()) {
+                            console.log('Performance entry:', entry);
+                        }
+                    });
+                    
+                    try {
+                        this.performanceObserver.observe({ entryTypes: ['measure', 'mark'] });
+                    } catch (e) {
+                        console.warn('Performance Observer not fully supported');
+                    }
+                }
+            }
+            
+            addTestResult(testName, metrics, status = 'completed') {
+                const result = {
+                    name: testName,
+                    metrics: metrics,
+                    status: status,
+                    timestamp: new Date().toISOString()
+                };
+                
+                this.testResults.push(result);
+                this.renderTestResult(result);
+                this.updateProgress();
+            }
+            
+            renderTestResult(result) {
+                const div = document.createElement('div');
+                div.className = 'perf-test';
+                
+                let metricsHtml = '';
+                Object.entries(result.metrics).forEach(([key, value]) => {
+                    let displayValue = value;
+                    let className = '';
+                    
+                    if (typeof value === 'number') {
+                        if (key.includes('time') || key.includes('duration')) {
+                            displayValue = `${value.toFixed(2)}ms`;
+                            className = value > 1000 ? 'error' : value > 500 ? 'warning' : 'success';
+                        } else if (key.includes('memory') || key.includes('size')) {
+                            displayValue = this.formatBytes(value);
+                            className = 'success';
+                        } else if (key.includes('rate') || key.includes('ops')) {
+                            displayValue = `${value.toFixed(0)} ops/sec`;
+                            className = value > 1000 ? 'success' : value > 100 ? 'warning' : 'error';
+                        } else {
+                            displayValue = value.toLocaleString();
+                        }
+                    }
+                    
+                    metricsHtml += `
+                        <div class="perf-metric">
+                            <div class="metric-value ${className}">${displayValue}</div>
+                            <div class="metric-label">${this.formatMetricName(key)}</div>
+                        </div>
+                    `;
+                });
+                
+                div.innerHTML = `
+                    <h3>${result.name} <span class="${result.status === 'completed' ? 'success' : 'error'}">(${result.status})</span></h3>
+                    <div class="metrics-container">
+                        ${metricsHtml}
+                    </div>
+                `;
+                
+                this.results.appendChild(div);
+            }
+            
+            formatMetricName(key) {
+                return key.replace(/([A-Z])/g, ' $1')
+                         .replace(/^./, str => str.toUpperCase())
+                         .replace(/([a-z])([A-Z])/g, '$1 $2');
+            }
+            
+            formatBytes(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            updateProgress() {
+                const progress = (this.currentTest / this.totalTests) * 100;
+                this.progressEl.style.width = `${progress}%`;
+                this.progressText.textContent = `${this.currentTest}/${this.totalTests} tests completed`;
+            }
+            
+            async measurePerformance(testName, testFunction) {
+                const startTime = performance.now();
+                const startMemory = performance.memory ? performance.memory.usedJSHeapSize : 0;
+                
+                performance.mark(`${testName}-start`);
+                
+                try {
+                    const result = await testFunction();
+                    
+                    performance.mark(`${testName}-end`);
+                    performance.measure(`${testName}-duration`, `${testName}-start`, `${testName}-end`);
+                    
+                    const endTime = performance.now();
+                    const endMemory = performance.memory ? performance.memory.usedJSHeapSize : 0;
+                    
+                    const metrics = {
+                        duration: endTime - startTime,
+                        memoryDelta: endMemory - startMemory,
+                        ...result
+                    };
+                    
+                    this.addTestResult(testName, metrics);
+                    this.currentTest++;
+                    
+                    return metrics;
+                } catch (error) {
+                    this.addTestResult(testName, { error: error.message }, 'failed');
+                    this.currentTest++;
+                    throw error;
+                }
+            }
+            
+            async testSprintCreationPerformance() {
+                return await this.measurePerformance('Sprint Creation Performance', async () => {
+                    const manager = window.sprintManager;
+                    const iterationCount = 100;
+                    const startTime = performance.now();
+                    
+                    for (let i = 0; i < iterationCount; i++) {
+                        const startDate = new Date(2024, 0, 1 + i);
+                        manager.createSprint({
+                            name: `Perf Test Sprint ${i}`,
+                            startDate: startDate.toISOString().split('T')[0],
+                            duration: 2,
+                            type: 'Development'
+                        });
+                    }
+                    
+                    const endTime = performance.now();
+                    const totalTime = endTime - startTime;
+                    
+                    return {
+                        sprintsCreated: iterationCount,
+                        avgCreationTime: totalTime / iterationCount,
+                        operationsPerSecond: (iterationCount / totalTime) * 1000
+                    };
+                });
+            }
+            
+            async testStoragePerformance() {
+                return await this.measurePerformance('Storage Performance', async () => {
+                    const storage = window.storageManager;
+                    const iterations = 50;
+                    
+                    let totalSaveTime = 0;
+                    let totalLoadTime = 0;
+                    
+                    for (let i = 0; i < iterations; i++) {
+                        // Test save performance
+                        const saveStart = performance.now();
+                        const testData = {
+                            sprints: Array(10).fill(null).map((_, idx) => ({
+                                id: `test-${i}-${idx}`,
+                                name: `Test Sprint ${i}-${idx}`,
+                                startDate: '2024-01-01',
+                                duration: 2,
+                                type: 'Development'
+                            }))
+                        };
+                        storage.saveData(testData);
+                        totalSaveTime += performance.now() - saveStart;
+                        
+                        // Test load performance
+                        const loadStart = performance.now();
+                        storage.getData();
+                        totalLoadTime += performance.now() - loadStart;
+                    }
+                    
+                    return {
+                        avgSaveTime: totalSaveTime / iterations,
+                        avgLoadTime: totalLoadTime / iterations,
+                        saveOpsPerSecond: (iterations / totalSaveTime) * 1000,
+                        loadOpsPerSecond: (iterations / totalLoadTime) * 1000
+                    };
+                });
+            }
+            
+            async testCalendarGenerationPerformance() {
+                return await this.measurePerformance('Calendar Generation Performance', async () => {
+                    const manager = window.sprintManager;
+                    const sprints = manager.getAllSprints();
+                    
+                    if (sprints.length === 0) {
+                        // Create a test sprint
+                        manager.createSprint({
+                            name: 'Calendar Perf Test',
+                            startDate: '2024-01-01',
+                            duration: 3,
+                            type: 'Development'
+                        });
+                    }
+                    
+                    const testSprints = manager.getAllSprints();
+                    const iterations = 100;
+                    const startTime = performance.now();
+                    
+                    for (let i = 0; i < iterations; i++) {
+                        for (const sprint of testSprints) {
+                            manager.getSprintCalendar(sprint.id);
+                        }
+                    }
+                    
+                    const endTime = performance.now();
+                    const totalTime = endTime - startTime;
+                    
+                    return {
+                        sprintsTested: testSprints.length,
+                        iterationsPerSprint: iterations,
+                        avgCalendarGenTime: totalTime / (iterations * testSprints.length),
+                        calendarsPerSecond: (iterations * testSprints.length / totalTime) * 1000
+                    };
+                });
+            }
+            
+            async testMemoryUsage() {
+                return await this.measurePerformance('Memory Usage Analysis', async () => {
+                    if (!performance.memory) {
+                        return { error: 'Memory API not available' };
+                    }
+                    
+                    const baseline = this.memoryBaseline;
+                    const current = {
+                        usedJSHeapSize: performance.memory.usedJSHeapSize,
+                        totalJSHeapSize: performance.memory.totalJSHeapSize,
+                        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+                    };
+                    
+                    return {
+                        currentMemoryUsage: current.usedJSHeapSize,
+                        memoryGrowth: current.usedJSHeapSize - baseline.usedJSHeapSize,
+                        totalHeapSize: current.totalJSHeapSize,
+                        heapSizeLimit: current.jsHeapSizeLimit,
+                        memoryUtilization: (current.usedJSHeapSize / current.totalJSHeapSize) * 100
+                    };
+                });
+            }
+            
+            async testLargeDatasetHandling() {
+                return await this.measurePerformance('Large Dataset Handling', async () => {
+                    const manager = window.sprintManager;
+                    const sprintCount = 500;
+                    const startTime = performance.now();
+                    
+                    // Create large number of sprints
+                    for (let i = 0; i < sprintCount; i++) {
+                        const startDate = new Date(2020, 0, 1 + (i * 14));
+                        manager.createSprint({
+                            name: `Large Dataset Sprint ${i}`,
+                            startDate: startDate.toISOString().split('T')[0],
+                            duration: i % 2 === 0 ? 2 : 3,
+                            type: ['Development', 'Non-Functional', 'Release', 'Hardening'][i % 4]
+                        });
+                    }
+                    
+                    const creationTime = performance.now() - startTime;
+                    
+                    // Test retrieval performance
+                    const retrievalStart = performance.now();
+                    const allSprints = manager.getAllSprints();
+                    const retrievalTime = performance.now() - retrievalStart;
+                    
+                    // Test filtering performance
+                    const filterStart = performance.now();
+                    const devSprints = manager.getSprintsByType('Development');
+                    const activeSprints = manager.getSprintsByStatus('Active');
+                    const filterTime = performance.now() - filterStart;
+                    
+                    return {
+                        sprintsCreated: sprintCount,
+                        totalCreationTime: creationTime,
+                        avgCreationTime: creationTime / sprintCount,
+                        retrievalTime: retrievalTime,
+                        filterTime: filterTime,
+                        devSprintsFound: devSprints.length,
+                        activeSprintsFound: activeSprints.length,
+                        datasetSize: JSON.stringify(allSprints).length
+                    };
+                });
+            }
+            
+            async testStorageQuota() {
+                return await this.measurePerformance('Storage Quota Testing', async () => {
+                    if (!navigator.storage || !navigator.storage.estimate) {
+                        return { error: 'Storage API not available' };
+                    }
+                    
+                    const estimate = await navigator.storage.estimate();
+                    
+                    // Test storage capacity by creating large data
+                    const storage = window.storageManager;
+                    const largeSprints = Array(1000).fill(null).map((_, i) => ({
+                        id: `large-${i}`,
+                        name: `Large Sprint ${i}`,
+                        startDate: '2024-01-01',
+                        duration: 2,
+                        type: 'Development',
+                        capacity: Array(14).fill(null).reduce((acc, _, day) => {
+                            acc[`2024-01-${String(day + 1).padStart(2, '0')}`] = Math.floor(Math.random() * 8);
+                            return acc;
+                        }, {}),
+                        description: 'A'.repeat(1000) // Large description to test storage
+                    }));
+                    
+                    const testData = { sprints: largeSprints };
+                    const dataSize = JSON.stringify(testData).length;
+                    
+                    try {
+                        storage.saveData(testData);
+                        
+                        return {
+                            storageQuota: estimate.quota,
+                            storageUsage: estimate.usage,
+                            storageUsagePercentage: (estimate.usage / estimate.quota) * 100,
+                            testDataSize: dataSize,
+                            largeDataSaveSuccess: true
+                        };
+                    } catch (error) {
+                        return {
+                            storageQuota: estimate.quota,
+                            storageUsage: estimate.usage,
+                            testDataSize: dataSize,
+                            largeDataSaveSuccess: false,
+                            error: error.message
+                        };
+                    }
+                });
+            }
+            
+            async runAllTests() {
+                this.totalTests = 6;
+                this.currentTest = 0;
+                this.testResults = [];
+                this.results.innerHTML = '';
+                
+                this.progressText.textContent = 'Starting performance tests...';
+                
+                try {
+                    await this.testSprintCreationPerformance();
+                    await this.testStoragePerformance();
+                    await this.testCalendarGenerationPerformance();
+                    await this.testMemoryUsage();
+                    await this.testLargeDatasetHandling();
+                    await this.testStorageQuota();
+                    
+                    this.generateSummary();
+                } catch (error) {
+                    console.error('Performance test error:', error);
+                    this.progressText.textContent = 'Performance tests completed with errors';
+                }
+            }
+            
+            generateSummary() {
+                const summary = this.analyzePerfResults();
+                
+                this.summaryEl.innerHTML = `
+                    <h3>Performance Test Summary</h3>
+                    <div class="perf-metric">
+                        <div class="metric-value ${summary.overallRating.color}">${summary.overallRating.score}/10</div>
+                        <div class="metric-label">Overall Performance Score</div>
+                    </div>
+                    <div class="perf-metric">
+                        <div class="metric-value">${summary.totalTests}</div>
+                        <div class="metric-label">Tests Completed</div>
+                    </div>
+                    <div class="perf-metric">
+                        <div class="metric-value">${summary.passedTests}</div>
+                        <div class="metric-label">Tests Passed</div>
+                    </div>
+                    
+                    <h4>Key Findings:</h4>
+                    <ul>
+                        ${summary.findings.map(finding => `<li class="${finding.type}">${finding.message}</li>`).join('')}
+                    </ul>
+                    
+                    <h4>Recommendations:</h4>
+                    <ul>
+                        ${summary.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                    </ul>
+                `;
+                
+                this.progressText.textContent = 'Performance analysis completed';
+            }
+            
+            analyzePerfResults() {
+                const findings = [];
+                const recommendations = [];
+                let score = 10;
+                let passedTests = this.testResults.filter(r => r.status === 'completed').length;
+                
+                this.testResults.forEach(result => {
+                    if (result.metrics.avgCreationTime && result.metrics.avgCreationTime > 10) {
+                        findings.push({
+                            type: 'warning',
+                            message: `Sprint creation is slow (${result.metrics.avgCreationTime.toFixed(2)}ms avg)`
+                        });
+                        score -= 1;
+                        recommendations.push('Consider optimizing sprint creation logic');
+                    }
+                    
+                    if (result.metrics.memoryGrowth && result.metrics.memoryGrowth > 10 * 1024 * 1024) {
+                        findings.push({
+                            type: 'error',
+                            message: `High memory growth detected (${this.formatBytes(result.metrics.memoryGrowth)})`
+                        });
+                        score -= 2;
+                        recommendations.push('Investigate memory leaks and optimize data structures');
+                    }
+                    
+                    if (result.metrics.operationsPerSecond && result.metrics.operationsPerSecond < 100) {
+                        findings.push({
+                            type: 'warning',
+                            message: `Low operation throughput (${result.metrics.operationsPerSecond.toFixed(0)} ops/sec)`
+                        });
+                        score -= 1;
+                        recommendations.push('Optimize algorithm performance');
+                    }
+                    
+                    if (result.metrics.storageUsagePercentage && result.metrics.storageUsagePercentage > 80) {
+                        findings.push({
+                            type: 'error',
+                            message: `High storage usage (${result.metrics.storageUsagePercentage.toFixed(1)}%)`
+                        });
+                        score -= 2;
+                        recommendations.push('Implement data cleanup and compression');
+                    }
+                });
+                
+                if (findings.length === 0) {
+                    findings.push({
+                        type: 'success',
+                        message: 'All performance metrics are within acceptable ranges'
+                    });
+                }
+                
+                if (recommendations.length === 0) {
+                    recommendations.push('Performance is optimal - continue monitoring');
+                }
+                
+                const ratingColor = score >= 8 ? 'success' : score >= 6 ? 'warning' : 'error';
+                
+                return {
+                    overallRating: { score: Math.max(0, score), color: ratingColor },
+                    totalTests: this.testResults.length,
+                    passedTests: passedTests,
+                    findings: findings,
+                    recommendations: recommendations
+                };
+            }
+            
+            clearTestData() {
+                if (confirm('Clear all test data? This will remove all sprints and reset the application.')) {
+                    localStorage.clear();
+                    window.location.reload();
+                }
+            }
+        }
+        
+        // Global functions
+        let perfFramework;
+        
+        function runAllPerformanceTests() {
+            perfFramework.runAllTests();
+        }
+        
+        function runLoadTest() {
+            perfFramework.testLargeDatasetHandling();
+        }
+        
+        function runMemoryTest() {
+            perfFramework.testMemoryUsage();
+        }
+        
+        function runStorageTest() {
+            perfFramework.testStoragePerformance();
+        }
+        
+        function clearTestData() {
+            perfFramework.clearTestData();
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            perfFramework = new PerformanceTestFramework();
+        });
+    </script>
+</body>
+</html>

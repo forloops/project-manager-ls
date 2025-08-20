@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Activity Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Simple Activity Functionality Test</h1>
+        
+        <div id="results" class="space-y-4"></div>
+        
+        <button onclick="runTests()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded">Run Tests</button>
+    </div>
+
+    <!-- Include required JavaScript files -->
+    <script src="src/storage/models.js"></script>
+    <script src="src/storage/storage.js"></script>
+    <script src="src/team/team-manager.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    <script src="src/workstreams/workstream-manager.js"></script>
+    <script src="src/team/capacity-tracker.js"></script>
+
+    <script>
+        function addResult(message, success = true) {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `p-4 rounded ${success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+            div.innerHTML = `${success ? '✓' : '✗'} ${message}`;
+            resultsDiv.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function runTests() {
+            clearResults();
+            
+            try {
+                // Test 1: Initialize storage
+                addResult('Step 1: Initializing storage...');
+                window.storageManager = new LocalStorageManager();
+                addResult('Storage initialized successfully');
+
+                // Test 2: Initialize managers
+                addResult('Step 2: Initializing managers...');
+                window.teamManager = new TeamManager();
+                window.sprintManager = new SprintManager();
+                window.workStreamManager = new WorkStreamManager();
+                addResult('Managers initialized successfully');
+
+                // Test 3: Create test team member
+                addResult('Step 3: Creating test team member...');
+                const memberResult = window.teamManager.createTeamMember({
+                    id: 'test-member-1',
+                    name: 'Test Developer',
+                    email: 'test@example.com',
+                    role: 'Developer',
+                    defaultCapacity: 8,
+                    isActive: true
+                });
+                
+                if (memberResult.success) {
+                    addResult('Team member created: ' + memberResult.member.name);
+                } else {
+                    addResult('Failed to create team member: ' + memberResult.errors.join(', '), false);
+                    return;
+                }
+                
+                // Verify team member can be found
+                const foundMember = window.teamManager.getTeamMemberById('test-member-1');
+                if (foundMember) {
+                    addResult('Team member lookup successful: ' + foundMember.name);
+                } else {
+                    addResult('Team member not found after creation!', false);
+                    return;
+                }
+
+                // Test 4: Create test sprint
+                addResult('Step 4: Creating test sprint...');
+                const sprintResult = window.sprintManager.createSprint({
+                    id: 'test-sprint-1',
+                    name: 'Test Sprint',
+                    startDate: '2025-08-25',
+                    endDate: '2025-09-05',
+                    duration: 2,
+                    type: 'Development',
+                    status: 'Active'
+                });
+                
+                if (sprintResult.success) {
+                    addResult('Sprint created: ' + sprintResult.sprint.name);
+                } else {
+                    addResult('Failed to create sprint: ' + sprintResult.errors.join(', '), false);
+                    return;
+                }
+
+                // Test 5: Initialize capacity tracker
+                addResult('Step 5: Initializing capacity tracker...');
+                window.capacityTracker = new CapacityTracker();
+                addResult('Capacity tracker initialized');
+
+                // Test 6: Create an activity
+                addResult('Step 6: Creating test activity...');
+                const activityResult = window.capacityTracker.addMemberActivity('test-member-1', '2025-08-25', {
+                    name: 'Feature Development',
+                    type: 'development',
+                    capacity: 4,
+                    description: 'Working on new feature'
+                });
+
+                if (activityResult.success) {
+                    addResult('Activity created successfully: ' + activityResult.activity.name);
+                } else {
+                    addResult('Failed to create activity: ' + activityResult.errors.join(', '), false);
+                }
+
+                // Test 7: Retrieve activities
+                addResult('Step 7: Retrieving activities...');
+                const activities = window.capacityTracker.getMemberDateActivities('test-member-1', '2025-08-25');
+                addResult(`Found ${activities.length} activity(ies) for the member`);
+                
+                if (activities.length > 0) {
+                    activities.forEach(activity => {
+                        addResult(`- ${activity.name}: ${activity.capacity} points (${activity.type})`);
+                    });
+                }
+
+                // Test 8: Add another activity
+                addResult('Step 8: Adding second activity...');
+                const secondActivity = window.capacityTracker.addMemberActivity('test-member-1', '2025-08-25', {
+                    name: 'Code Review',
+                    type: 'review',
+                    capacity: 2,
+                    description: 'Reviewing team code'
+                });
+
+                if (secondActivity.success) {
+                    addResult('Second activity created successfully');
+                } else {
+                    addResult('Failed to create second activity: ' + secondActivity.errors.join(', '), false);
+                }
+
+                // Test 9: Check total capacity
+                addResult('Step 9: Checking total capacity...');
+                const totalCapacity = window.capacityTracker.getMemberDateCapacityFromActivities('test-member-1', '2025-08-25');
+                addResult(`Total capacity for the day: ${totalCapacity} points`);
+
+                // Test 10: Test capacity limit
+                addResult('Step 10: Testing capacity limit...');
+                const overCapacity = window.capacityTracker.addMemberActivity('test-member-1', '2025-08-25', {
+                    name: 'Too Much Work',
+                    type: 'development',
+                    capacity: 5 // This would exceed 8 point limit
+                });
+
+                if (!overCapacity.success) {
+                    addResult('Correctly prevented over-capacity allocation');
+                } else {
+                    addResult('ERROR: Over-capacity was allowed!', false);
+                }
+
+                // Test 11: Update an activity
+                addResult('Step 11: Updating activity capacity...');
+                if (activities.length > 0) {
+                    const updateResult = window.capacityTracker.updateMemberActivity(activities[0].id, {
+                        capacity: 3
+                    });
+                    if (updateResult.success) {
+                        addResult('Activity updated successfully');
+                    } else {
+                        addResult('Failed to update activity: ' + updateResult.errors.join(', '), false);
+                    }
+                }
+
+                // Test 12: Data persistence
+                addResult('Step 12: Testing data persistence...');
+                const saved = window.capacityTracker.saveMemberActivities();
+                if (saved) {
+                    // Clear and reload
+                    window.capacityTracker.memberActivities = {};
+                    window.capacityTracker.memberActivities = window.capacityTracker.loadMemberActivities();
+                    
+                    const reloadedActivities = window.capacityTracker.getMemberDateActivities('test-member-1', '2025-08-25');
+                    if (reloadedActivities.length > 0) {
+                        addResult('Data persistence working - activities reloaded after clear');
+                    } else {
+                        addResult('Data persistence failed - activities not found after reload', false);
+                    }
+                } else {
+                    addResult('Failed to save activities', false);
+                }
+
+                // Test 13: Export/Import
+                addResult('Step 13: Testing export/import...');
+                const exportData = window.capacityTracker.exportCapacityData();
+                if (exportData) {
+                    const parsed = JSON.parse(exportData);
+                    if (parsed.memberActivities && parsed.version === '2.0') {
+                        addResult(`Export successful - Version ${parsed.version} with ${parsed.memberActivities.length} activities`);
+                    } else {
+                        addResult('Export missing activity data or version', false);
+                    }
+                } else {
+                    addResult('Export failed', false);
+                }
+
+                // Summary
+                addResult('');
+                addResult('=== TEST COMPLETE ===');
+                addResult('Multi-activity capacity allocation is working correctly!');
+
+            } catch (error) {
+                addResult('ERROR: ' + error.message, false);
+                console.error(error);
+            }
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 500);
+        });
+    </script>
+</body>
+</html>

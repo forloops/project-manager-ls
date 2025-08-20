@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint 2 Integration Test - Product Manager LS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .test-pass { @apply bg-green-100 text-green-800 border-green-200; }
+        .test-fail { @apply bg-red-100 text-red-800 border-red-200; }
+        .test-pending { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-6" x-data="sprint2TestApp()" x-cloak>
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Sprint 2 Integration Test</h1>
+        <p class="text-gray-600 mb-8">Testing Work Stream Configuration, Team Management, and Capacity Planning</p>
+        
+        <!-- Test Controls -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Test Controls</h2>
+            <div class="flex flex-wrap gap-4">
+                <button @click="runAllTests()" 
+                        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Run All Tests
+                </button>
+                <button @click="setupTestData()" 
+                        class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                    Setup Test Data
+                </button>
+                <button @click="clearTestData()" 
+                        class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                    Clear Test Data
+                </button>
+                <button @click="exportTestResults()" 
+                        class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                    Export Results
+                </button>
+            </div>
+        </div>
+
+        <!-- Test Results Summary -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Test Results Summary</h2>
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600" x-text="testResults.passed"></div>
+                    <div class="text-sm text-gray-600">Passed</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-red-600" x-text="testResults.failed"></div>
+                    <div class="text-sm text-gray-600">Failed</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-600" x-text="testResults.total"></div>
+                    <div class="text-sm text-gray-600">Total</div>
+                </div>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+                <div class="bg-green-600 h-3 rounded-full transition-all duration-300" 
+                     :style="`width: ${testResults.total > 0 ? (testResults.passed / testResults.total) * 100 : 0}%`"></div>
+            </div>
+        </div>
+
+        <!-- Work Stream Tests -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Work Stream Tests</h2>
+            <div class="space-y-3">
+                <template x-for="test in workStreamTests" :key="test.name">
+                    <div class="flex items-center justify-between p-3 border rounded-lg"
+                         :class="getTestClass(test.status)">
+                        <div>
+                            <h3 class="font-medium" x-text="test.name"></h3>
+                            <p class="text-sm" x-text="test.description"></p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 text-xs font-medium rounded" 
+                                  :class="getStatusClass(test.status)"
+                                  x-text="test.status"></span>
+                            <button @click="runSingleTest('workStream', test.name)" 
+                                    class="bg-gray-500 text-white px-2 py-1 text-xs rounded hover:bg-gray-600">
+                                Run
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Team Management Tests -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Team Management Tests</h2>
+            <div class="space-y-3">
+                <template x-for="test in teamTests" :key="test.name">
+                    <div class="flex items-center justify-between p-3 border rounded-lg"
+                         :class="getTestClass(test.status)">
+                        <div>
+                            <h3 class="font-medium" x-text="test.name"></h3>
+                            <p class="text-sm" x-text="test.description"></p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 text-xs font-medium rounded" 
+                                  :class="getStatusClass(test.status)"
+                                  x-text="test.status"></span>
+                            <button @click="runSingleTest('team', test.name)" 
+                                    class="bg-gray-500 text-white px-2 py-1 text-xs rounded hover:bg-gray-600">
+                                Run
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Capacity Planning Tests -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Capacity Planning Tests</h2>
+            <div class="space-y-3">
+                <template x-for="test in capacityTests" :key="test.name">
+                    <div class="flex items-center justify-between p-3 border rounded-lg"
+                         :class="getTestClass(test.status)">
+                        <div>
+                            <h3 class="font-medium" x-text="test.name"></h3>
+                            <p class="text-sm" x-text="test.description"></p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 text-xs font-medium rounded" 
+                                  :class="getStatusClass(test.status)"
+                                  x-text="test.status"></span>
+                            <button @click="runSingleTest('capacity', test.name)" 
+                                    class="bg-gray-500 text-white px-2 py-1 text-xs rounded hover:bg-gray-600">
+                                Run
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Integration Tests -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Integration Tests</h2>
+            <div class="space-y-3">
+                <template x-for="test in integrationTests" :key="test.name">
+                    <div class="flex items-center justify-between p-3 border rounded-lg"
+                         :class="getTestClass(test.status)">
+                        <div>
+                            <h3 class="font-medium" x-text="test.name"></h3>
+                            <p class="text-sm" x-text="test.description"></p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 text-xs font-medium rounded" 
+                                  :class="getStatusClass(test.status)"
+                                  x-text="test.status"></span>
+                            <button @click="runSingleTest('integration', test.name)" 
+                                    class="bg-gray-500 text-white px-2 py-1 text-xs rounded hover:bg-gray-600">
+                                Run
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Test Log -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Test Log</h2>
+            <div class="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm h-64 overflow-y-auto">
+                <template x-for="log in testLogs" :key="log.timestamp">
+                    <div>
+                        <span class="text-gray-500" x-text="log.timestamp"></span>
+                        <span x-text="log.message"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="src/storage/storage.js"></script>
+    <script src="src/storage/models.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    <script src="src/team/team-manager.js"></script>
+    <script src="src/team/capacity-tracker.js"></script>
+    <script src="src/workstreams/workstream-manager.js"></script>
+
+    <script>
+        function sprint2TestApp() {
+            return {
+                testResults: {
+                    passed: 0,
+                    failed: 0,
+                    total: 0
+                },
+                testLogs: [],
+                workStreamTests: [
+                    {
+                        name: 'Create Work Stream',
+                        description: 'Test creating work streams with color assignment',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Color Management',
+                        description: 'Test automatic color assignment and collision handling',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Work Stream Analytics',
+                        description: 'Test work stream utilization statistics',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Sprint Association',
+                        description: 'Test associating work streams with sprints',
+                        status: 'pending'
+                    }
+                ],
+                teamTests: [
+                    {
+                        name: 'Create Team Member',
+                        description: 'Test creating team members with different roles',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Time Off Management',
+                        description: 'Test adding and removing time off periods',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Team Analytics',
+                        description: 'Test team balance and capacity analysis',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Role Validation',
+                        description: 'Test predefined roles and custom role handling',
+                        status: 'pending'
+                    }
+                ],
+                capacityTests: [
+                    {
+                        name: 'Capacity Calculation',
+                        description: 'Test individual and team capacity calculations',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Capacity Overrides',
+                        description: 'Test capacity override functionality',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Sprint Capacity Tracking',
+                        description: 'Test capacity tracking across sprints',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Utilization Analysis',
+                        description: 'Test capacity utilization recommendations',
+                        status: 'pending'
+                    }
+                ],
+                integrationTests: [
+                    {
+                        name: 'Sprint-WorkStream Integration',
+                        description: 'Test integration between sprints and work streams',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Team-Sprint Integration',
+                        description: 'Test team member assignment to sprints',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Data Persistence',
+                        description: 'Test data saving and loading across modules',
+                        status: 'pending'
+                    },
+                    {
+                        name: 'Error Handling',
+                        description: 'Test error handling and validation',
+                        status: 'pending'
+                    }
+                ],
+
+                init() {
+                    this.log('Sprint 2 Integration Test initialized');
+                    this.updateTestResults();
+                },
+
+                log(message) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    this.testLogs.unshift({ timestamp, message });
+                    if (this.testLogs.length > 100) {
+                        this.testLogs.pop();
+                    }
+                },
+
+                updateTestResults() {
+                    const allTests = [
+                        ...this.workStreamTests,
+                        ...this.teamTests,
+                        ...this.capacityTests,
+                        ...this.integrationTests
+                    ];
+                    
+                    this.testResults.total = allTests.length;
+                    this.testResults.passed = allTests.filter(t => t.status === 'pass').length;
+                    this.testResults.failed = allTests.filter(t => t.status === 'fail').length;
+                },
+
+                getTestClass(status) {
+                    switch (status) {
+                        case 'pass': return 'test-pass border-green-200';
+                        case 'fail': return 'test-fail border-red-200';
+                        default: return 'test-pending border-yellow-200';
+                    }
+                },
+
+                getStatusClass(status) {
+                    switch (status) {
+                        case 'pass': return 'bg-green-100 text-green-800';
+                        case 'fail': return 'bg-red-100 text-red-800';
+                        default: return 'bg-yellow-100 text-yellow-800';
+                    }
+                },
+
+                async setupTestData() {
+                    this.log('Setting up test data...');
+                    
+                    try {
+                        // Clear existing data
+                        window.storageManager.clearData();
+                        
+                        // Create test work streams
+                        const workStreams = [
+                            { name: 'User Authentication', color: '#2563EB', description: 'Login and security features' },
+                            { name: 'Payment Processing', color: '#059669', description: 'Payment and billing features' },
+                            { name: 'Data Analytics', color: '#7C3AED', description: 'Reporting and analytics' }
+                        ];
+                        
+                        for (const wsData of workStreams) {
+                            window.workStreamManager.createWorkStream(wsData);
+                        }
+                        
+                        // Create test team members
+                        const teamMembers = [
+                            { name: 'Alice Developer', email: 'alice@example.com', role: 'Developer', defaultCapacity: 10 },
+                            { name: 'Bob Tester', email: 'bob@example.com', role: 'Tester', defaultCapacity: 8 },
+                            { name: 'Carol Analyst', email: 'carol@example.com', role: 'Business Analyst', defaultCapacity: 6 },
+                            { name: 'Dave Lead', email: 'dave@example.com', role: 'Technical Lead', defaultCapacity: 12 }
+                        ];
+                        
+                        for (const memberData of teamMembers) {
+                            window.teamManager.createTeamMember(memberData);
+                        }
+                        
+                        // Create test sprint
+                        const sprintData = {
+                            name: 'Sprint 2024-Test',
+                            startDate: '2024-01-15',
+                            duration: 2,
+                            type: 'Development',
+                            workStreams: window.workStreamManager.getAllWorkStreams().slice(0, 2).map(ws => ws.id)
+                        };
+                        
+                        window.sprintManager.createSprint(sprintData);
+                        
+                        this.log('Test data setup completed');
+                    } catch (error) {
+                        this.log('Error setting up test data: ' + error.message);
+                    }
+                },
+
+                async clearTestData() {
+                    this.log('Clearing test data...');
+                    try {
+                        window.storageManager.clearData();
+                        this.log('Test data cleared');
+                    } catch (error) {
+                        this.log('Error clearing test data: ' + error.message);
+                    }
+                },
+
+                async runAllTests() {
+                    this.log('Running all Sprint 2 integration tests...');
+                    
+                    // Reset all test statuses
+                    [...this.workStreamTests, ...this.teamTests, ...this.capacityTests, ...this.integrationTests]
+                        .forEach(test => test.status = 'pending');
+                    
+                    // Run work stream tests
+                    for (const test of this.workStreamTests) {
+                        await this.runSingleTest('workStream', test.name);
+                    }
+                    
+                    // Run team tests
+                    for (const test of this.teamTests) {
+                        await this.runSingleTest('team', test.name);
+                    }
+                    
+                    // Run capacity tests
+                    for (const test of this.capacityTests) {
+                        await this.runSingleTest('capacity', test.name);
+                    }
+                    
+                    // Run integration tests
+                    for (const test of this.integrationTests) {
+                        await this.runSingleTest('integration', test.name);
+                    }
+                    
+                    this.updateTestResults();
+                    this.log(`All tests completed. ${this.testResults.passed}/${this.testResults.total} passed`);
+                },
+
+                async runSingleTest(category, testName) {
+                    this.log(`Running test: ${testName}`);
+                    
+                    let test;
+                    switch (category) {
+                        case 'workStream':
+                            test = this.workStreamTests.find(t => t.name === testName);
+                            break;
+                        case 'team':
+                            test = this.teamTests.find(t => t.name === testName);
+                            break;
+                        case 'capacity':
+                            test = this.capacityTests.find(t => t.name === testName);
+                            break;
+                        case 'integration':
+                            test = this.integrationTests.find(t => t.name === testName);
+                            break;
+                    }
+                    
+                    if (!test) return;
+                    
+                    try {
+                        const result = await this.executeTest(category, testName);
+                        test.status = result ? 'pass' : 'fail';
+                        this.log(`Test ${testName}: ${test.status.toUpperCase()}`);
+                    } catch (error) {
+                        test.status = 'fail';
+                        this.log(`Test ${testName}: FAILED - ${error.message}`);
+                    }
+                    
+                    this.updateTestResults();
+                },
+
+                async executeTest(category, testName) {
+                    // Simulate test execution with actual functionality
+                    switch (`${category}:${testName}`) {
+                        case 'workStream:Create Work Stream':
+                            const result = window.workStreamManager.createWorkStream({
+                                name: 'Test Stream',
+                                description: 'Test description'
+                            });
+                            return result.success;
+                            
+                        case 'workStream:Color Management':
+                            const colors = window.workStreamManager.getAvailableColors();
+                            return Array.isArray(colors) && colors.length > 0;
+                            
+                        case 'workStream:Work Stream Analytics':
+                            const stats = window.workStreamManager.getWorkStreamStatistics();
+                            return stats && typeof stats.active === 'number';
+                            
+                        case 'workStream:Sprint Association':
+                            const workStreams = window.workStreamManager.getAllWorkStreams();
+                            const sprints = window.sprintManager.getAllSprints();
+                            if (workStreams.length > 0 && sprints.length > 0) {
+                                return window.workStreamManager.associateWithSprint(workStreams[0].id, sprints[0].id);
+                            }
+                            return false;
+                            
+                        case 'team:Create Team Member':
+                            const teamResult = window.teamManager.createTeamMember({
+                                name: 'Test Member',
+                                email: 'test@example.com',
+                                role: 'Developer',
+                                defaultCapacity: 8
+                            });
+                            return teamResult.success;
+                            
+                        case 'team:Time Off Management':
+                            const members = window.teamManager.getAllTeamMembers();
+                            if (members.length > 0) {
+                                const timeOffResult = window.teamManager.addTimeOff(
+                                    members[0].id, '2024-01-20', '2024-01-22', 'Test leave'
+                                );
+                                return timeOffResult.success;
+                            }
+                            return false;
+                            
+                        case 'team:Team Analytics':
+                            const teamStats = window.teamManager.getTeamStatistics();
+                            return teamStats && teamStats.capacityAnalysis && teamStats.teamBalance;
+                            
+                        case 'team:Role Validation':
+                            const roles = window.teamManager.getPredefinedRoles();
+                            return Array.isArray(roles) && roles.length > 0;
+                            
+                        case 'capacity:Capacity Calculation':
+                            const capacity = window.capacityTracker.calculateTeamCapacity('test-sprint');
+                            return capacity && typeof capacity.totalCapacity === 'number';
+                            
+                        case 'capacity:Capacity Overrides':
+                            const override = window.capacityTracker.setMemberSprintCapacity(
+                                'test-member', 'test-sprint', 10, 'Test override'
+                            );
+                            return override.success;
+                            
+                        case 'capacity:Sprint Capacity Tracking':
+                            const allSprints = window.sprintManager.getAllSprints();
+                            if (allSprints.length > 0) {
+                                const sprintCapacity = window.capacityTracker.calculateTeamCapacity(allSprints[0].id);
+                                return sprintCapacity && typeof sprintCapacity.totalCapacity === 'number';
+                            }
+                            return false;
+                            
+                        case 'capacity:Utilization Analysis':
+                            const recommendations = window.capacityTracker.getCapacityRecommendations('test-sprint');
+                            return recommendations && recommendations.status;
+                            
+                        case 'integration:Sprint-WorkStream Integration':
+                            const allWorkStreams = window.workStreamManager.getAllWorkStreams();
+                            const allSprintData = window.sprintManager.getAllSprints();
+                            return allWorkStreams.length > 0 && allSprintData.length > 0;
+                            
+                        case 'integration:Team-Sprint Integration':
+                            const teamMembers = window.teamManager.getAllTeamMembers();
+                            const sprintList = window.sprintManager.getAllSprints();
+                            return teamMembers.length > 0 && sprintList.length > 0;
+                            
+                        case 'integration:Data Persistence':
+                            const storageStats = window.storageManager.getStorageStats();
+                            return storageStats && storageStats.totalSprints >= 0;
+                            
+                        case 'integration:Error Handling':
+                            try {
+                                window.workStreamManager.createWorkStream({ name: '' });
+                                return false; // Should have failed
+                            } catch (error) {
+                                return true; // Error handling works
+                            }
+                            
+                        default:
+                            return true; // Default pass for unimplemented tests
+                    }
+                },
+
+                exportTestResults() {
+                    const results = {
+                        timestamp: new Date().toISOString(),
+                        summary: this.testResults,
+                        workStreamTests: this.workStreamTests,
+                        teamTests: this.teamTests,
+                        capacityTests: this.capacityTests,
+                        integrationTests: this.integrationTests,
+                        logs: this.testLogs
+                    };
+                    
+                    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `sprint2-test-results-${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    this.log('Test results exported successfully');
+                }
+            };
+        }
+    </script>
+</body>
+</html>

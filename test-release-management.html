@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Release Management Test - Product Manager LS</title>
+    
+    <!-- TailwindCSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- AlpineJS via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        .test-pass { @apply bg-green-100 text-green-800 border-green-200; }
+        .test-fail { @apply bg-red-100 text-red-800 border-red-200; }
+        .test-pending { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div x-data="releaseTestSuite()" x-cloak class="container mx-auto px-4 py-6">
+        <!-- Test Header -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Release Management Test Suite</h1>
+            <p class="text-gray-600 mt-1">Comprehensive testing for Sprint 3 Release Management functionality</p>
+            
+            <!-- Test Controls -->
+            <div class="mt-4 flex space-x-4">
+                <button @click="runAllTests()" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    Run All Tests
+                </button>
+                <button @click="resetTestData()" 
+                        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    Reset Test Data
+                </button>
+                <button @click="generateTestData()" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    Generate Test Data
+                </button>
+            </div>
+        </header>
+
+        <!-- Test Results Summary -->
+        <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="text-2xl font-bold text-blue-600" x-text="testResults.total"></div>
+                <div class="text-sm text-gray-600">Total Tests</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="text-2xl font-bold text-green-600" x-text="testResults.passed"></div>
+                <div class="text-sm text-gray-600">Passed</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="text-2xl font-bold text-red-600" x-text="testResults.failed"></div>
+                <div class="text-sm text-gray-600">Failed</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="text-2xl font-bold text-yellow-600" x-text="testResults.pending"></div>
+                <div class="text-sm text-gray-600">Pending</div>
+            </div>
+        </div>
+
+        <!-- Test Categories -->
+        <div class="space-y-6">
+            <!-- Release CRUD Tests -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Release CRUD Operations</h2>
+                <div class="space-y-3">
+                    <template x-for="test in tests.crud" :key="test.name">
+                        <div class="flex items-center justify-between p-3 border rounded-lg"
+                             :class="getTestStatusClass(test.status)">
+                            <div>
+                                <span class="font-medium" x-text="test.name"></span>
+                                <div x-show="test.error" class="text-sm text-red-600" x-text="test.error"></div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm" x-text="test.duration ? test.duration + 'ms' : ''"></span>
+                                <button @click="runSingleTest('crud', test)" 
+                                        class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded text-xs">
+                                    Run
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Release Integration Tests -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Release Integration</h2>
+                <div class="space-y-3">
+                    <template x-for="test in tests.integration" :key="test.name">
+                        <div class="flex items-center justify-between p-3 border rounded-lg"
+                             :class="getTestStatusClass(test.status)">
+                            <div>
+                                <span class="font-medium" x-text="test.name"></span>
+                                <div x-show="test.error" class="text-sm text-red-600" x-text="test.error"></div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm" x-text="test.duration ? test.duration + 'ms' : ''"></span>
+                                <button @click="runSingleTest('integration', test)" 
+                                        class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded text-xs">
+                                    Run
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Release Analytics Tests -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Release Analytics & Readiness</h2>
+                <div class="space-y-3">
+                    <template x-for="test in tests.analytics" :key="test.name">
+                        <div class="flex items-center justify-between p-3 border rounded-lg"
+                             :class="getTestStatusClass(test.status)">
+                            <div>
+                                <span class="font-medium" x-text="test.name"></span>
+                                <div x-show="test.error" class="text-sm text-red-600" x-text="test.error"></div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm" x-text="test.duration ? test.duration + 'ms' : ''"></span>
+                                <button @click="runSingleTest('analytics', test)" 
+                                        class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded text-xs">
+                                    Run
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- UI Integration Tests -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">UI Integration</h2>
+                <div class="space-y-3">
+                    <template x-for="test in tests.ui" :key="test.name">
+                        <div class="flex items-center justify-between p-3 border rounded-lg"
+                             :class="getTestStatusClass(test.status)">
+                            <div>
+                                <span class="font-medium" x-text="test.name"></span>
+                                <div x-show="test.error" class="text-sm text-red-600" x-text="test.error"></div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm" x-text="test.duration ? test.duration + 'ms' : ''"></span>
+                                <button @click="runSingleTest('ui', test)" 
+                                        class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded text-xs">
+                                    Run
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Data Visualization -->
+        <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Test Data Visualization</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Release Timeline -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-800 mb-2">Release Timeline</h3>
+                    <div x-show="releaseTimeline.length > 0" class="space-y-2">
+                        <template x-for="item in releaseTimeline" :key="item.date + item.type">
+                            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                <span class="text-sm" x-text="item.title"></span>
+                                <span class="text-xs text-gray-500" x-text="item.date"></span>
+                            </div>
+                        </template>
+                    </div>
+                    <div x-show="releaseTimeline.length === 0" class="text-gray-500 text-sm">
+                        No timeline data available
+                    </div>
+                </div>
+
+                <!-- Release Statistics -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-800 mb-2">Release Statistics</h3>
+                    <div x-data="{ stats: getReleaseStats() }" class="space-y-2">
+                        <div class="flex justify-between">
+                            <span>Total Releases:</span>
+                            <span x-text="stats.total"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Active Releases:</span>
+                            <span x-text="stats.planning + stats.inProgress"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Upcoming Decisions:</span>
+                            <span x-text="stats.upcoming"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Average Readiness:</span>
+                            <span x-text="stats.averageReadiness + '%'"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Log -->
+        <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Test Log</h2>
+            <div class="max-h-64 overflow-y-auto">
+                <template x-for="log in testLog" :key="log.id">
+                    <div class="flex items-start space-x-2 py-1 text-sm">
+                        <span class="text-gray-500" x-text="log.timestamp"></span>
+                        <span :class="log.level === 'error' ? 'text-red-600' : log.level === 'warn' ? 'text-yellow-600' : 'text-green-600'" 
+                              x-text="log.message"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Application Scripts -->
+    <script src="src/storage/storage.js"></script>
+    <script src="src/storage/models.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    <script src="src/team/team-manager.js"></script>
+    <script src="src/team/capacity-tracker.js"></script>
+    <script src="src/workstreams/workstream-manager.js"></script>
+    <script src="src/releases/release-manager.js"></script>
+
+    <script>
+        function releaseTestSuite() {
+            return {
+                testResults: {
+                    total: 0,
+                    passed: 0,
+                    failed: 0,
+                    pending: 0
+                },
+                
+                tests: {
+                    crud: [
+                        { name: 'Create Release', status: 'pending', fn: 'testCreateRelease' },
+                        { name: 'Get Release', status: 'pending', fn: 'testGetRelease' },
+                        { name: 'Update Release', status: 'pending', fn: 'testUpdateRelease' },
+                        { name: 'Delete Release', status: 'pending', fn: 'testDeleteRelease' },
+                        { name: 'Validation Tests', status: 'pending', fn: 'testReleaseValidation' }
+                    ],
+                    integration: [
+                        { name: 'Sprint Association', status: 'pending', fn: 'testSprintAssociation' },
+                        { name: 'Work Stream Integration', status: 'pending', fn: 'testWorkStreamIntegration' },
+                        { name: 'Cross-Reference Updates', status: 'pending', fn: 'testCrossReferenceUpdates' },
+                        { name: 'Data Consistency', status: 'pending', fn: 'testDataConsistency' }
+                    ],
+                    analytics: [
+                        { name: 'Readiness Calculation', status: 'pending', fn: 'testReadinessCalculation' },
+                        { name: 'Timeline Analysis', status: 'pending', fn: 'testTimelineAnalysis' },
+                        { name: 'Recommendations Engine', status: 'pending', fn: 'testRecommendations' },
+                        { name: 'Statistics Generation', status: 'pending', fn: 'testStatistics' }
+                    ],
+                    ui: [
+                        { name: 'Manager Initialization', status: 'pending', fn: 'testManagerInit' },
+                        { name: 'Event Handling', status: 'pending', fn: 'testEventHandling' },
+                        { name: 'Storage Integration', status: 'pending', fn: 'testStorageIntegration' },
+                        { name: 'Error Handling', status: 'pending', fn: 'testErrorHandling' }
+                    ]
+                },
+                
+                testLog: [],
+                releaseTimeline: [],
+                
+                init() {
+                    this.log('Test suite initialized', 'info');
+                    this.updateTestCounts();
+                },
+                
+                log(message, level = 'info') {
+                    this.testLog.push({
+                        id: Date.now(),
+                        timestamp: new Date().toLocaleTimeString(),
+                        message: message,
+                        level: level
+                    });
+                },
+                
+                updateTestCounts() {
+                    let total = 0, passed = 0, failed = 0, pending = 0;
+                    
+                    Object.values(this.tests).forEach(category => {
+                        category.forEach(test => {
+                            total++;
+                            if (test.status === 'passed') passed++;
+                            else if (test.status === 'failed') failed++;
+                            else pending++;
+                        });
+                    });
+                    
+                    this.testResults = { total, passed, failed, pending };
+                },
+                
+                runAllTests() {
+                    this.log('Starting comprehensive test suite...', 'info');
+                    
+                    Object.keys(this.tests).forEach(category => {
+                        this.tests[category].forEach(test => {
+                            this.runSingleTest(category, test);
+                        });
+                    });
+                },
+                
+                runSingleTest(category, test) {
+                    const startTime = Date.now();
+                    test.status = 'running';
+                    test.error = null;
+                    
+                    try {
+                        // Run the test function
+                        const result = this[test.fn]();
+                        
+                        if (result === true || (result && result.success)) {
+                            test.status = 'passed';
+                            this.log(`✓ ${test.name} passed`, 'success');
+                        } else {
+                            test.status = 'failed';
+                            test.error = result && result.error ? result.error : 'Test failed without specific error';
+                            this.log(`✗ ${test.name} failed: ${test.error}`, 'error');
+                        }
+                    } catch (error) {
+                        test.status = 'failed';
+                        test.error = error.message;
+                        this.log(`✗ ${test.name} error: ${error.message}`, 'error');
+                    }
+                    
+                    test.duration = Date.now() - startTime;
+                    this.updateTestCounts();
+                },
+                
+                // CRUD Tests
+                testCreateRelease() {
+                    const releaseData = {
+                        name: 'Test Release v1.0',
+                        description: 'Test release for validation',
+                        goNoGoDate: '2024-12-01',
+                        productionDate: '2024-12-15',
+                        status: 'Planning'
+                    };
+                    
+                    const result = window.releaseManager.createRelease(releaseData);
+                    return result.success;
+                },
+                
+                testGetRelease() {
+                    const releases = window.releaseManager.getAllReleases();
+                    if (releases.length === 0) {
+                        return { success: false, error: 'No releases found' };
+                    }
+                    
+                    const release = window.releaseManager.getRelease(releases[0].id);
+                    return release !== null;
+                },
+                
+                testUpdateRelease() {
+                    const releases = window.releaseManager.getAllReleases();
+                    if (releases.length === 0) {
+                        return { success: false, error: 'No releases to update' };
+                    }
+                    
+                    const result = window.releaseManager.updateRelease(releases[0].id, {
+                        status: 'In Progress'
+                    });
+                    return result.success;
+                },
+                
+                testDeleteRelease() {
+                    const releases = window.releaseManager.getAllReleases();
+                    if (releases.length === 0) {
+                        return { success: false, error: 'No releases to delete' };
+                    }
+                    
+                    const result = window.releaseManager.deleteRelease(releases[0].id);
+                    return result.success;
+                },
+                
+                testReleaseValidation() {
+                    // Test invalid data
+                    const invalidRelease = {
+                        name: '', // Invalid: empty name
+                        goNoGoDate: '2024-12-15',
+                        productionDate: '2024-12-01' // Invalid: production before go/no-go
+                    };
+                    
+                    const result = window.releaseManager.createRelease(invalidRelease);
+                    return !result.success && result.errors.length > 0;
+                },
+                
+                // Integration Tests
+                testSprintAssociation() {
+                    // Create test sprint and release
+                    const sprintResult = window.sprintManager.createSprint({
+                        name: 'Integration Test Sprint',
+                        startDate: '2024-11-01',
+                        duration: 2,
+                        type: 'Development'
+                    });
+                    
+                    if (!sprintResult.success) {
+                        return { success: false, error: 'Failed to create test sprint' };
+                    }
+                    
+                    const releaseResult = window.releaseManager.createRelease({
+                        name: 'Integration Test Release',
+                        goNoGoDate: '2024-12-01',
+                        productionDate: '2024-12-15',
+                        sprints: [sprintResult.sprint.id]
+                    });
+                    
+                    return releaseResult.success;
+                },
+                
+                testWorkStreamIntegration() {
+                    if (!window.workStreamManager) {
+                        return { success: false, error: 'WorkStream manager not available' };
+                    }
+                    
+                    // Create test work stream
+                    const wsResult = window.workStreamManager.createWorkStream({
+                        name: 'Integration Test Stream',
+                        color: '#FF5733'
+                    });
+                    
+                    if (!wsResult.success) {
+                        return { success: false, error: 'Failed to create test work stream' };
+                    }
+                    
+                    const releaseResult = window.releaseManager.createRelease({
+                        name: 'WS Integration Test Release',
+                        goNoGoDate: '2024-12-01',
+                        productionDate: '2024-12-15',
+                        workStreams: [wsResult.workStream.id]
+                    });
+                    
+                    return releaseResult.success;
+                },
+                
+                testCrossReferenceUpdates() {
+                    // Test that work stream associations are properly updated
+                    const releases = window.releaseManager.getAllReleases();
+                    const workStreams = window.workStreamManager ? window.workStreamManager.getAllWorkStreams() : [];
+                    
+                    if (releases.length === 0 || workStreams.length === 0) {
+                        return { success: false, error: 'Need releases and work streams for cross-reference test' };
+                    }
+                    
+                    // Check if work stream has release reference
+                    const workStream = workStreams.find(ws => ws.releases && ws.releases.length > 0);
+                    return workStream !== undefined;
+                },
+                
+                testDataConsistency() {
+                    // Verify data consistency across managers
+                    const releases = window.releaseManager.getAllReleases();
+                    const sprints = window.sprintManager.getAllSprints();
+                    
+                    // Check that all referenced sprints exist
+                    for (const release of releases) {
+                        if (release.sprints) {
+                            for (const sprintId of release.sprints) {
+                                const sprint = sprints.find(s => s.id === sprintId);
+                                if (!sprint) {
+                                    return { success: false, error: `Referenced sprint ${sprintId} not found` };
+                                }
+                            }
+                        }
+                    }
+                    
+                    return true;
+                },
+                
+                // Analytics Tests
+                testReadinessCalculation() {
+                    const releases = window.releaseManager.getAllReleases();
+                    if (releases.length === 0) {
+                        return { success: false, error: 'No releases for readiness test' };
+                    }
+                    
+                    const readiness = window.releaseManager.getReleaseReadiness(releases[0].id);
+                    return readiness !== null && typeof readiness.readinessScore === 'number';
+                },
+                
+                testTimelineAnalysis() {
+                    const timeline = window.releaseManager.getReleaseTimeline();
+                    return Array.isArray(timeline);
+                },
+                
+                testRecommendations() {
+                    const releases = window.releaseManager.getAllReleases();
+                    if (releases.length === 0) {
+                        return { success: false, error: 'No releases for recommendations test' };
+                    }
+                    
+                    const readiness = window.releaseManager.getReleaseReadiness(releases[0].id);
+                    return readiness && Array.isArray(readiness.recommendations);
+                },
+                
+                testStatistics() {
+                    const stats = window.releaseManager.getReleaseStatistics();
+                    return stats && typeof stats.total === 'number';
+                },
+                
+                // UI Tests
+                testManagerInit() {
+                    return window.releaseManager !== undefined;
+                },
+                
+                testEventHandling() {
+                    // Test event emission
+                    let eventReceived = false;
+                    
+                    const handler = () => {
+                        eventReceived = true;
+                    };
+                    
+                    window.addEventListener('releaseChanged', handler);
+                    
+                    // Create a release to trigger event
+                    window.releaseManager.createRelease({
+                        name: 'Event Test Release',
+                        goNoGoDate: '2024-12-01',
+                        productionDate: '2024-12-15'
+                    });
+                    
+                    window.removeEventListener('releaseChanged', handler);
+                    
+                    return eventReceived;
+                },
+                
+                testStorageIntegration() {
+                    const statsBeforeTest = window.storageManager.getStorageStats();
+                    
+                    // Create and delete a release
+                    const result = window.releaseManager.createRelease({
+                        name: 'Storage Test Release',
+                        goNoGoDate: '2024-12-01',
+                        productionDate: '2024-12-15'
+                    });
+                    
+                    if (!result.success) {
+                        return { success: false, error: 'Failed to create release for storage test' };
+                    }
+                    
+                    const statsAfterCreate = window.storageManager.getStorageStats();
+                    
+                    // Delete the release
+                    window.releaseManager.deleteRelease(result.release.id);
+                    
+                    const statsAfterDelete = window.storageManager.getStorageStats();
+                    
+                    // Check that storage stats changed appropriately
+                    return statsAfterCreate.totalReleases > statsBeforeTest.totalReleases &&
+                           statsAfterDelete.totalReleases === statsBeforeTest.totalReleases;
+                },
+                
+                testErrorHandling() {
+                    // Test error handling for invalid operations
+                    const result = window.releaseManager.getRelease('invalid-id');
+                    return result === null; // Should handle gracefully
+                },
+                
+                // Test Data Management
+                generateTestData() {
+                    this.log('Generating comprehensive test data...', 'info');
+                    
+                    try {
+                        // Create test work streams
+                        if (window.workStreamManager) {
+                            const workStreams = [
+                                { name: 'User Authentication', color: '#3B82F6' },
+                                { name: 'Payment Processing', color: '#EF4444' },
+                                { name: 'Mobile App Features', color: '#10B981' },
+                                { name: 'API Development', color: '#F59E0B' }
+                            ];
+                            
+                            workStreams.forEach(ws => {
+                                window.workStreamManager.createWorkStream(ws);
+                            });
+                        }
+                        
+                        // Create test sprints
+                        const sprints = [
+                            { name: 'Sprint 2024-20', startDate: '2024-11-01', duration: 2, type: 'Development' },
+                            { name: 'Sprint 2024-21', startDate: '2024-11-15', duration: 2, type: 'Development' },
+                            { name: 'Sprint 2024-22', startDate: '2024-11-29', duration: 2, type: 'Release' },
+                            { name: 'Sprint 2024-23', startDate: '2024-12-13', duration: 2, type: 'Hardening' }
+                        ];
+                        
+                        const createdSprints = [];
+                        sprints.forEach(sprint => {
+                            const result = window.sprintManager.createSprint(sprint);
+                            if (result.success) {
+                                createdSprints.push(result.sprint);
+                            }
+                        });
+                        
+                        // Create test releases
+                        const releases = [
+                            {
+                                name: 'Mobile App v2.1 Release',
+                                description: 'Major mobile app update with new authentication features',
+                                goNoGoDate: '2024-12-05',
+                                productionDate: '2024-12-20',
+                                status: 'Planning',
+                                sprints: createdSprints.slice(0, 2).map(s => s.id)
+                            },
+                            {
+                                name: 'Payment System Update',
+                                description: 'Enhanced payment processing with new providers',
+                                goNoGoDate: '2024-12-15',
+                                productionDate: '2025-01-10',
+                                status: 'In Progress',
+                                sprints: createdSprints.slice(1, 3).map(s => s.id)
+                            },
+                            {
+                                name: 'Q1 2025 Platform Release',
+                                description: 'Quarterly platform update with performance improvements',
+                                goNoGoDate: '2025-01-20',
+                                productionDate: '2025-02-15',
+                                status: 'Planning',
+                                sprints: createdSprints.slice(2).map(s => s.id)
+                            }
+                        ];
+                        
+                        releases.forEach(release => {
+                            window.releaseManager.createRelease(release);
+                        });
+                        
+                        // Update timeline
+                        this.updateReleaseTimeline();
+                        
+                        this.log('Test data generated successfully', 'success');
+                    } catch (error) {
+                        this.log(`Failed to generate test data: ${error.message}`, 'error');
+                    }
+                },
+                
+                resetTestData() {
+                    this.log('Resetting test data...', 'info');
+                    
+                    try {
+                        // Clear all test data
+                        window.storageManager.clearData();
+                        
+                        // Reset test results
+                        Object.values(this.tests).forEach(category => {
+                            category.forEach(test => {
+                                test.status = 'pending';
+                                test.error = null;
+                                test.duration = null;
+                            });
+                        });
+                        
+                        this.updateTestCounts();
+                        this.releaseTimeline = [];
+                        
+                        this.log('Test data reset successfully', 'success');
+                    } catch (error) {
+                        this.log(`Failed to reset test data: ${error.message}`, 'error');
+                    }
+                },
+                
+                updateReleaseTimeline() {
+                    this.releaseTimeline = window.releaseManager.getReleaseTimeline();
+                },
+                
+                getReleaseStats() {
+                    return window.releaseManager.getReleaseStatistics();
+                },
+                
+                getTestStatusClass(status) {
+                    const classes = {
+                        'pending': 'test-pending border-yellow-200',
+                        'running': 'test-pending border-blue-200',
+                        'passed': 'test-pass border-green-200',
+                        'failed': 'test-fail border-red-200'
+                    };
+                    return classes[status] || 'border-gray-200';
+                }
+            };
+        }
+    </script>
+</body>
+</html>

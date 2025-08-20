@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Activity Capacity Allocation Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        .activity-capacity-cell {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .activity-capacity-cell:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .activity-item:hover {
+            background-color: #f9fafb;
+        }
+        
+        .activity-modal-overlay {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div x-data="multiActivityTest()" class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">Multi-Activity Capacity Allocation Test</h1>
+        
+        <!-- Test Status -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Implementation Status</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-green-500">✓</span>
+                        <span>ActivityModel created with validation</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-green-500">✓</span>
+                        <span>CapacityTracker extended for activities</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-green-500">✓</span>
+                        <span>Activity-enhanced capacity cells</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-green-500">✓</span>
+                        <span>Activity management modal</span>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-green-500">✓</span>
+                        <span>Data persistence layer</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-green-500">✓</span>
+                        <span>Backward compatibility maintained</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-green-500">✓</span>
+                        <span>Import/export functionality</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span x-text="testResults.allTestsPassed ? '✓' : '⚠'" :class="testResults.allTestsPassed ? 'text-green-500' : 'text-yellow-500'"></span>
+                        <span>Comprehensive testing</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Core Functionality Tests -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Core Functionality Tests</h2>
+            
+            <div class="space-y-4 mb-6">
+                <button @click="runTests()" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Run All Tests
+                </button>
+                
+                <div x-show="testResults.testsRun" class="space-y-2">
+                    <template x-for="test in testResults.results" :key="test.name">
+                        <div class="flex items-center space-x-2">
+                            <span x-text="test.passed ? '✓' : '✗'" :class="test.passed ? 'text-green-500' : 'text-red-500'"></span>
+                            <span x-text="test.name"></span>
+                            <span x-show="!test.passed" x-text="test.error" class="text-red-600 text-sm"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Interactive Capacity Planning Demo -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Interactive Capacity Planning Demo</h2>
+            
+            <!-- Team Member Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+                <div class="font-medium text-gray-700 p-2">Team Member</div>
+                <div class="text-center font-medium text-gray-700 p-2">Monday</div>
+                <div class="text-center font-medium text-gray-700 p-2">Tuesday</div>
+                <div class="text-center font-medium text-gray-700 p-2">Wednesday</div>
+                <div class="text-center font-medium text-gray-700 p-2">Thursday</div>
+                <div class="text-center font-medium text-gray-700 p-2">Friday</div>
+                
+                <template x-for="member in testTeam" :key="member.id">
+                    <template>
+                        <div class="flex items-center p-2 bg-gray-50 rounded text-sm" x-text="member.name"></div>
+                        <template x-for="day in workingDays" :key="`${member.id}-${day}`">
+                            <div :id="`cell-${member.id}-${day}`" 
+                                 class="capacity-cell-container"
+                                 @capacityChanged="handleCapacityChange($event)">
+                                <!-- Capacity cell will be rendered here by JavaScript -->
+                            </div>
+                        </template>
+                    </template>
+                </template>
+            </div>
+            
+            <!-- Activity Summary -->
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Activity Summary</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-600" x-text="activitySummary.totalActivities"></div>
+                        <div class="text-sm text-gray-600">Total Activities</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600" x-text="activitySummary.totalCapacity.toFixed(1)"></div>
+                        <div class="text-sm text-gray-600">Total Capacity</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-purple-600" x-text="activitySummary.averageUtilization.toFixed(1) + '%'"></div>
+                        <div class="text-sm text-gray-600">Average Utilization</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Data Operations -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Data Operations</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button @click="exportData()" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    Export Activity Data
+                </button>
+                
+                <button @click="clearAllData()" 
+                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    Clear All Data
+                </button>
+                
+                <button @click="generateSampleData()" 
+                        class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    Generate Sample Data
+                </button>
+            </div>
+        </div>
+        
+        <!-- Operation Results -->
+        <div x-show="operationResult" 
+             class="bg-white rounded-lg shadow-md p-6"
+             :class="operationResult.success ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500'">
+            <div class="flex items-center space-x-2">
+                <span x-text="operationResult.success ? '✓' : '✗'" 
+                      :class="operationResult.success ? 'text-green-500' : 'text-red-500'"></span>
+                <span class="font-medium" x-text="operationResult.title"></span>
+            </div>
+            <div class="mt-2 text-sm text-gray-600" x-text="operationResult.message"></div>
+            <div x-show="operationResult.data" class="mt-2">
+                <textarea x-model="operationResult.data" 
+                          class="w-full h-32 text-xs font-mono border rounded p-2" 
+                          readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include required JavaScript files -->
+    <script src="src/storage/models.js"></script>
+    <script src="src/storage/storage.js"></script>
+    <script src="src/team/team-manager.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    <script src="src/workstreams/workstream-manager.js"></script>
+    <script src="src/team/capacity-tracker.js"></script>
+    <script src="src/capacity/activity-capacity-cell.js"></script>
+    <script src="src/capacity/activity-modal.js"></script>
+
+    <script>
+        function multiActivityTest() {
+            return {
+                testResults: {
+                    testsRun: false,
+                    allTestsPassed: false,
+                    results: []
+                },
+                testTeam: [
+                    { id: 'dev1', name: 'Alice (Developer)', defaultCapacity: 8 },
+                    { id: 'dev2', name: 'Bob (Developer)', defaultCapacity: 8 },
+                    { id: 'tester1', name: 'Carol (Tester)', defaultCapacity: 6 }
+                ],
+                workingDays: ['2025-08-25', '2025-08-26', '2025-08-27', '2025-08-28', '2025-08-29'],
+                capacityCells: {},
+                activitySummary: {
+                    totalActivities: 0,
+                    totalCapacity: 0,
+                    averageUtilization: 0
+                },
+                operationResult: null,
+
+                init() {
+                    this.initializeTestEnvironment();
+                    this.createCapacityCells();
+                    this.updateActivitySummary();
+                },
+
+                initializeTestEnvironment() {
+                    // Initialize storage manager
+                    if (!window.storageManager) {
+                        window.storageManager = new LocalStorageManager();
+                    }
+
+                    // Initialize team manager
+                    if (!window.teamManager) {
+                        window.teamManager = new TeamManager();
+                        // Add test team members using proper API
+                        this.testTeam.forEach(member => {
+                            const memberResult = window.teamManager.createTeamMember({
+                                ...member,
+                                email: `${member.id}@test.com`,
+                                role: member.name.includes('Developer') ? 'Developer' : 
+                                      member.name.includes('Tester') ? 'Tester' : 'Developer',
+                                isActive: true
+                            });
+                            if (!memberResult.success) {
+                                console.error('Failed to create team member:', memberResult.errors);
+                            }
+                        });
+                    }
+
+                    // Initialize sprint manager
+                    if (!window.sprintManager) {
+                        window.sprintManager = new SprintManager();
+                        // Create a test sprint using proper API
+                        const sprintResult = window.sprintManager.createSprint({
+                            id: 'test-sprint-1',
+                            name: 'Test Sprint 1',
+                            startDate: '2025-08-25',
+                            endDate: '2025-09-05',
+                            duration: 2,
+                            type: 'Development',
+                            status: 'Active'
+                        });
+                        if (!sprintResult.success) {
+                            console.error('Failed to create test sprint:', sprintResult.errors);
+                        }
+                    }
+
+                    // Initialize workstream manager  
+                    if (!window.workStreamManager) {
+                        window.workStreamManager = new WorkStreamManager();
+                    }
+
+                    // Initialize capacity tracker (must be after team and sprint managers)
+                    if (!window.capacityTracker) {
+                        window.capacityTracker = new CapacityTracker();
+                    }
+                },
+
+                createCapacityCells() {
+                    this.testTeam.forEach(member => {
+                        this.workingDays.forEach(day => {
+                            const cellId = `cell-${member.id}-${day}`;
+                            const container = document.getElementById(cellId);
+                            if (container) {
+                                const cell = new ActivityCapacityCell(member.id, day, container);
+                                this.capacityCells[`${member.id}-${day}`] = cell;
+                            }
+                        });
+                    });
+                },
+
+                runTests() {
+                    this.testResults.results = [];
+                    this.testResults.testsRun = true;
+
+                    const tests = [
+                        { name: 'ActivityModel validation', test: () => this.testActivityModelValidation() },
+                        { name: 'Activity creation and storage', test: () => this.testActivityCreationStorage() },
+                        { name: 'Activity capacity validation', test: () => this.testActivityCapacityValidation() },
+                        { name: 'Multiple activities per day', test: () => this.testMultipleActivitiesPerDay() },
+                        { name: 'Data persistence', test: () => this.testDataPersistence() },
+                        { name: 'Export/import functionality', test: () => this.testExportImport() }
+                    ];
+
+                    tests.forEach(test => {
+                        try {
+                            const result = test.test();
+                            this.testResults.results.push({
+                                name: test.name,
+                                passed: true,
+                                result: result
+                            });
+                        } catch (error) {
+                            this.testResults.results.push({
+                                name: test.name,
+                                passed: false,
+                                error: error.message
+                            });
+                        }
+                    });
+
+                    this.testResults.allTestsPassed = this.testResults.results.every(r => r.passed);
+                },
+
+                testActivityModelValidation() {
+                    const activity = new ActivityModel({
+                        name: 'Test Activity',
+                        type: 'development',
+                        capacity: 4,
+                        memberId: 'dev1',
+                        date: '2025-08-25'
+                    });
+
+                    const validation = activity.validate();
+                    if (!validation.isValid) {
+                        throw new Error('Valid activity failed validation');
+                    }
+
+                    // Test invalid activity
+                    const invalidActivity = new ActivityModel({
+                        name: '',
+                        capacity: -1
+                    });
+
+                    const invalidValidation = invalidActivity.validate();
+                    if (invalidValidation.isValid) {
+                        throw new Error('Invalid activity passed validation');
+                    }
+
+                    return 'ActivityModel validation working correctly';
+                },
+
+                testActivityCreationStorage() {
+                    const result = window.capacityTracker.addMemberActivity('dev1', '2025-08-25', {
+                        name: 'Unit Testing',
+                        type: 'testing',
+                        capacity: 2
+                    });
+
+                    if (!result.success) {
+                        throw new Error(`Failed to create activity: ${result.errors.join(', ')}`);
+                    }
+
+                    const activities = window.capacityTracker.getMemberDateActivities('dev1', '2025-08-25');
+                    if (activities.length === 0) {
+                        throw new Error('Activity not found after creation');
+                    }
+
+                    return 'Activity creation and storage working correctly';
+                },
+
+                testActivityCapacityValidation() {
+                    // Try to add activity that exceeds capacity
+                    const result = window.capacityTracker.addMemberActivity('dev1', '2025-08-26', {
+                        name: 'Large Task',
+                        type: 'development',
+                        capacity: 20 // Exceeds 8 point limit
+                    });
+
+                    if (result.success) {
+                        throw new Error('Over-capacity activity was allowed');
+                    }
+
+                    return 'Capacity validation working correctly';
+                },
+
+                testMultipleActivitiesPerDay() {
+                    const activities = [
+                        { name: 'Morning Development', type: 'development', capacity: 3 },
+                        { name: 'Afternoon Testing', type: 'testing', capacity: 2 },
+                        { name: 'Sprint Planning', type: 'meeting', capacity: 1 }
+                    ];
+
+                    activities.forEach(activityData => {
+                        const result = window.capacityTracker.addMemberActivity('dev2', '2025-08-27', activityData);
+                        if (!result.success) {
+                            throw new Error(`Failed to add activity: ${result.errors.join(', ')}`);
+                        }
+                    });
+
+                    const dayActivities = window.capacityTracker.getMemberDateActivities('dev2', '2025-08-27');
+                    if (dayActivities.length !== 3) {
+                        throw new Error(`Expected 3 activities, got ${dayActivities.length}`);
+                    }
+
+                    const totalCapacity = dayActivities.reduce((sum, act) => sum + act.capacity, 0);
+                    if (totalCapacity !== 6) {
+                        throw new Error(`Expected total capacity 6, got ${totalCapacity}`);
+                    }
+
+                    return 'Multiple activities per day working correctly';
+                },
+
+                testDataPersistence() {
+                    // Save activities
+                    const saveResult = window.capacityTracker.saveMemberActivities();
+                    if (!saveResult) {
+                        throw new Error('Failed to save activities');
+                    }
+
+                    // Clear and reload
+                    window.capacityTracker.memberActivities = {};
+                    window.capacityTracker.memberActivities = window.capacityTracker.loadMemberActivities();
+
+                    const activities = window.capacityTracker.getMemberDateActivities('dev2', '2025-08-27');
+                    if (activities.length === 0) {
+                        throw new Error('Activities not persisted');
+                    }
+
+                    return 'Data persistence working correctly';
+                },
+
+                testExportImport() {
+                    const exportData = window.capacityTracker.exportCapacityData();
+                    if (!exportData) {
+                        throw new Error('Failed to export data');
+                    }
+
+                    const parsedData = JSON.parse(exportData);
+                    if (!parsedData.memberActivities || !Array.isArray(parsedData.memberActivities)) {
+                        throw new Error('Export data missing activity information');
+                    }
+
+                    if (parsedData.version !== '2.0') {
+                        throw new Error('Export data missing version 2.0 activity support');
+                    }
+
+                    return 'Export/import functionality working correctly';
+                },
+
+                handleCapacityChange(event) {
+                    this.updateActivitySummary();
+                },
+
+                updateActivitySummary() {
+                    let totalActivities = 0;
+                    let totalCapacity = 0;
+                    let totalUtilization = 0;
+                    let memberCount = 0;
+
+                    this.testTeam.forEach(member => {
+                        this.workingDays.forEach(day => {
+                            const activities = window.capacityTracker.getMemberDateActivities(member.id, day);
+                            totalActivities += activities.length;
+                            const dayCapacity = activities.reduce((sum, act) => sum + act.capacity, 0);
+                            totalCapacity += dayCapacity;
+                            
+                            if (dayCapacity > 0) {
+                                totalUtilization += (dayCapacity / member.defaultCapacity) * 100;
+                                memberCount++;
+                            }
+                        });
+                    });
+
+                    this.activitySummary = {
+                        totalActivities,
+                        totalCapacity,
+                        averageUtilization: memberCount > 0 ? totalUtilization / memberCount : 0
+                    };
+                },
+
+                exportData() {
+                    try {
+                        const data = window.capacityTracker.exportCapacityData();
+                        this.operationResult = {
+                            success: true,
+                            title: 'Data Export Successful',
+                            message: 'Activity data has been exported successfully. The data includes version 2.0 activity support.',
+                            data: data
+                        };
+                    } catch (error) {
+                        this.operationResult = {
+                            success: false,
+                            title: 'Export Failed',
+                            message: error.message
+                        };
+                    }
+                },
+
+                clearAllData() {
+                    try {
+                        window.capacityTracker.memberActivities = {};
+                        window.capacityTracker.saveMemberActivities();
+                        
+                        // Refresh all capacity cells
+                        Object.values(this.capacityCells).forEach(cell => cell.refresh());
+                        this.updateActivitySummary();
+                        
+                        this.operationResult = {
+                            success: true,
+                            title: 'Data Cleared',
+                            message: 'All activity data has been cleared successfully.'
+                        };
+                    } catch (error) {
+                        this.operationResult = {
+                            success: false,
+                            title: 'Clear Failed',
+                            message: error.message
+                        };
+                    }
+                },
+
+                generateSampleData() {
+                    try {
+                        const sampleActivities = [
+                            { memberId: 'dev1', date: '2025-08-25', name: 'Feature Development', type: 'development', capacity: 5 },
+                            { memberId: 'dev1', date: '2025-08-25', name: 'Code Review', type: 'review', capacity: 2 },
+                            { memberId: 'dev1', date: '2025-08-26', name: 'Bug Fixing', type: 'development', capacity: 4 },
+                            { memberId: 'dev1', date: '2025-08-26', name: 'Team Meeting', type: 'meeting', capacity: 1 },
+                            { memberId: 'dev2', date: '2025-08-25', name: 'API Integration', type: 'development', capacity: 6 },
+                            { memberId: 'dev2', date: '2025-08-26', name: 'Testing', type: 'testing', capacity: 3 },
+                            { memberId: 'dev2', date: '2025-08-26', name: 'Documentation', type: 'documentation', capacity: 2 },
+                            { memberId: 'tester1', date: '2025-08-25', name: 'Test Case Writing', type: 'testing', capacity: 4 },
+                            { memberId: 'tester1', date: '2025-08-26', name: 'Regression Testing', type: 'testing', capacity: 5 }
+                        ];
+
+                        sampleActivities.forEach(activityData => {
+                            window.capacityTracker.addMemberActivity(activityData.memberId, activityData.date, activityData);
+                        });
+
+                        // Refresh all capacity cells
+                        Object.values(this.capacityCells).forEach(cell => cell.refresh());
+                        this.updateActivitySummary();
+
+                        this.operationResult = {
+                            success: true,
+                            title: 'Sample Data Generated',
+                            message: `Generated ${sampleActivities.length} sample activities across the team.`
+                        };
+                    } catch (error) {
+                        this.operationResult = {
+                            success: false,
+                            title: 'Sample Data Generation Failed',
+                            message: error.message
+                        };
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Manager LS - Offline Functionality Testing</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .test-header {
+            background: #7c3aed;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .offline-test {
+            background: white;
+            margin: 15px 0;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .network-status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .status-online {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        .status-offline {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        .status-unknown {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        .test-result.pass {
+            background: #ecfdf5;
+            border-color: #10b981;
+        }
+        .test-result.fail {
+            background: #fef2f2;
+            border-color: #ef4444;
+        }
+        .test-result.warn {
+            background: #fffbeb;
+            border-color: #f59e0b;
+        }
+        .btn {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 1em;
+        }
+        .btn:hover {
+            background: #6d28d9;
+        }
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .btn.danger {
+            background: #dc2626;
+        }
+        .btn.danger:hover {
+            background: #b91c1c;
+        }
+        .service-worker-status {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .cache-info {
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .progress-indicator {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #7c3aed;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="test-header">
+            <h1>Product Manager LS - Offline Functionality Testing</h1>
+            <p>Testing Service Worker, caching, and offline capabilities</p>
+        </div>
+        
+        <div class="network-status" id="network-status">
+            <span id="network-indicator">🔍</span> Checking network status...
+        </div>
+        
+        <div class="service-worker-status" id="service-worker-status">
+            <h3>Service Worker Status</h3>
+            <div id="sw-registration-status">Checking Service Worker registration...</div>
+            <div id="sw-cache-status">Checking cache status...</div>
+        </div>
+        
+        <div class="test-controls">
+            <button class="btn" onclick="runOfflineTests()">Run Offline Tests</button>
+            <button class="btn" onclick="testCacheStatus()">Check Cache</button>
+            <button class="btn" onclick="testDataPersistence()">Test Data Persistence</button>
+            <button class="btn" onclick="simulateOfflineMode()">Simulate Offline</button>
+            <button class="btn danger" onclick="clearCaches()">Clear Caches</button>
+        </div>
+        
+        <div id="offline-test-results"></div>
+    </div>
+    
+    <!-- Load application dependencies -->
+    <script src="src/storage/storage.js"></script>
+    <script src="src/storage/models.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    
+    <script>
+        /**
+         * Offline Functionality Testing Framework
+         * Tests Service Worker, caching, and offline data persistence
+         */
+        class OfflineTestFramework {
+            constructor() {
+                this.results = document.getElementById('offline-test-results');
+                this.networkStatus = document.getElementById('network-status');
+                this.networkIndicator = document.getElementById('network-indicator');
+                this.swStatus = document.getElementById('service-worker-status');
+                this.swRegistration = document.getElementById('sw-registration-status');
+                this.swCache = document.getElementById('sw-cache-status');
+                
+                this.testResults = [];
+                this.serviceWorkerRegistration = null;
+                this.originalOnlineStatus = navigator.onLine;
+                
+                this.initializeOfflineTests();
+            }
+            
+            async initializeOfflineTests() {
+                this.updateNetworkStatus();
+                await this.checkServiceWorkerStatus();
+                await this.checkCacheStatus();
+                
+                // Listen for network status changes
+                window.addEventListener('online', () => this.updateNetworkStatus());
+                window.addEventListener('offline', () => this.updateNetworkStatus());
+            }
+            
+            updateNetworkStatus() {
+                const isOnline = navigator.onLine;
+                const statusEl = this.networkStatus;
+                const indicatorEl = this.networkIndicator;
+                
+                if (isOnline) {
+                    statusEl.className = 'network-status status-online';
+                    indicatorEl.textContent = '🟢';
+                    statusEl.innerHTML = `${indicatorEl.outerHTML} Online - Internet connection available`;
+                } else {
+                    statusEl.className = 'network-status status-offline';
+                    indicatorEl.textContent = '🔴';
+                    statusEl.innerHTML = `${indicatorEl.outerHTML} Offline - No internet connection`;
+                }
+            }
+            
+            async checkServiceWorkerStatus() {
+                try {
+                    if (!('serviceWorker' in navigator)) {
+                        this.swRegistration.innerHTML = '❌ Service Worker not supported in this browser';
+                        return false;
+                    }
+                    
+                    this.swRegistration.innerHTML = '<div class="progress-indicator"></div>Checking Service Worker registration...';
+                    
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    
+                    if (registrations.length > 0) {
+                        this.serviceWorkerRegistration = registrations[0];
+                        const state = this.serviceWorkerRegistration.active ? 
+                                     this.serviceWorkerRegistration.active.state : 'unknown';
+                        
+                        this.swRegistration.innerHTML = `✅ Service Worker registered and ${state}`;
+                        
+                        // Check for updates
+                        this.serviceWorkerRegistration.addEventListener('updatefound', () => {
+                            this.swRegistration.innerHTML += '<br>🔄 Service Worker update available';
+                        });
+                        
+                        return true;
+                    } else {
+                        // Try to register the service worker
+                        try {
+                            const registration = await navigator.serviceWorker.register('/sw.js');
+                            this.serviceWorkerRegistration = registration;
+                            this.swRegistration.innerHTML = '✅ Service Worker registered successfully';
+                            return true;
+                        } catch (error) {
+                            this.swRegistration.innerHTML = `❌ Failed to register Service Worker: ${error.message}`;
+                            return false;
+                        }
+                    }
+                } catch (error) {
+                    this.swRegistration.innerHTML = `❌ Service Worker check failed: ${error.message}`;
+                    return false;
+                }
+            }
+            
+            async checkCacheStatus() {
+                try {
+                    if (!('caches' in window)) {
+                        this.swCache.innerHTML = '❌ Cache API not supported';
+                        return false;
+                    }
+                    
+                    this.swCache.innerHTML = '<div class="progress-indicator"></div>Checking cache status...';
+                    
+                    const cacheNames = await caches.keys();
+                    
+                    if (cacheNames.length === 0) {
+                        this.swCache.innerHTML = '⚠️ No caches found - application may not work offline';
+                        return false;
+                    }
+                    
+                    let cacheInfo = '✅ Caches found:<br>';
+                    let totalCachedItems = 0;
+                    
+                    for (const cacheName of cacheNames) {
+                        const cache = await caches.open(cacheName);
+                        const cachedRequests = await cache.keys();
+                        totalCachedItems += cachedRequests.length;
+                        
+                        cacheInfo += `<div class="cache-info">
+                            📦 ${cacheName}: ${cachedRequests.length} items cached
+                        </div>`;
+                    }
+                    
+                    cacheInfo += `<div class="cache-info">Total cached resources: ${totalCachedItems}</div>`;
+                    this.swCache.innerHTML = cacheInfo;
+                    
+                    return true;
+                } catch (error) {
+                    this.swCache.innerHTML = `❌ Cache check failed: ${error.message}`;
+                    return false;
+                }
+            }
+            
+            addTestResult(testName, status, message, details = null) {
+                const result = {
+                    name: testName,
+                    status: status, // 'pass', 'fail', 'warn'
+                    message: message,
+                    details: details,
+                    timestamp: new Date().toISOString()
+                };
+                
+                this.testResults.push(result);
+                this.renderTestResult(result);
+            }
+            
+            renderTestResult(result) {
+                const div = document.createElement('div');
+                div.className = 'offline-test';
+                
+                const statusIcon = result.status === 'pass' ? '✅' : 
+                                  result.status === 'fail' ? '❌' : '⚠️';
+                
+                let detailsHtml = '';
+                if (result.details) {
+                    detailsHtml = `<div class="cache-info">${JSON.stringify(result.details, null, 2)}</div>`;
+                }
+                
+                div.innerHTML = `
+                    <h3>${statusIcon} ${result.name}</h3>
+                    <div class="test-result ${result.status}">
+                        ${result.message}
+                    </div>
+                    ${detailsHtml}
+                `;
+                
+                this.results.appendChild(div);
+            }
+            
+            async testServiceWorkerInstallation() {
+                try {
+                    if (!('serviceWorker' in navigator)) {
+                        this.addTestResult(
+                            'Service Worker Support',
+                            'fail',
+                            'Service Worker not supported in this browser'
+                        );
+                        return false;
+                    }
+                    
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    
+                    if (!registration) {
+                        this.addTestResult(
+                            'Service Worker Registration',
+                            'fail',
+                            'No Service Worker registered'
+                        );
+                        return false;
+                    }
+                    
+                    const hasActiveWorker = registration.active !== null;
+                    const workerState = registration.active ? registration.active.state : 'none';
+                    
+                    this.addTestResult(
+                        'Service Worker Installation',
+                        hasActiveWorker ? 'pass' : 'fail',
+                        `Service Worker ${hasActiveWorker ? 'installed and active' : 'not active'} (state: ${workerState})`
+                    );
+                    
+                    return hasActiveWorker;
+                } catch (error) {
+                    this.addTestResult(
+                        'Service Worker Installation',
+                        'fail',
+                        `Error checking Service Worker: ${error.message}`
+                    );
+                    return false;
+                }
+            }
+            
+            async testCacheAvailability() {
+                try {
+                    if (!('caches' in window)) {
+                        this.addTestResult(
+                            'Cache API Support',
+                            'fail',
+                            'Cache API not supported'
+                        );
+                        return false;
+                    }
+                    
+                    const cacheNames = await caches.keys();
+                    const hasAppCache = cacheNames.some(name => name.includes('product-manager-ls'));
+                    
+                    this.addTestResult(
+                        'Application Cache',
+                        hasAppCache ? 'pass' : 'warn',
+                        hasAppCache ? 
+                            `Application cache found: ${cacheNames.join(', ')}` :
+                            'No application cache found - may not work offline'
+                    );
+                    
+                    // Test cache functionality
+                    const testCacheName = 'offline-test-cache';
+                    const testCache = await caches.open(testCacheName);
+                    
+                    // Try to cache a simple request
+                    const testRequest = new Request('/test-cache-item');
+                    const testResponse = new Response('test data', {
+                        status: 200,
+                        statusText: 'OK'
+                    });
+                    
+                    await testCache.put(testRequest, testResponse);
+                    const cachedResponse = await testCache.match(testRequest);
+                    
+                    if (cachedResponse) {
+                        await caches.delete(testCacheName); // Clean up
+                        this.addTestResult(
+                            'Cache Functionality',
+                            'pass',
+                            'Cache read/write operations working correctly'
+                        );
+                        return true;
+                    } else {
+                        this.addTestResult(
+                            'Cache Functionality',
+                            'fail',
+                            'Cache write/read operations failed'
+                        );
+                        return false;
+                    }
+                } catch (error) {
+                    this.addTestResult(
+                        'Cache Availability',
+                        'fail',
+                        `Cache testing failed: ${error.message}`
+                    );
+                    return false;
+                }
+            }
+            
+            async testDataPersistenceOffline() {
+                try {
+                    const storage = window.storageManager;
+                    
+                    // Test local storage availability
+                    if (!storage.isStorageAvailable()) {
+                        this.addTestResult(
+                            'Local Storage Availability',
+                            'fail',
+                            'Local storage not available'
+                        );
+                        return false;
+                    }
+                    
+                    // Create test data
+                    const testSprint = {
+                        name: 'Offline Test Sprint',
+                        startDate: '2024-01-01',
+                        duration: 2,
+                        type: 'Development'
+                    };
+                    
+                    const manager = window.sprintManager;
+                    const createResult = manager.createSprint(testSprint);
+                    
+                    if (!createResult.success) {
+                        this.addTestResult(
+                            'Data Creation Offline',
+                            'fail',
+                            `Failed to create sprint: ${createResult.errors.join(', ')}`
+                        );
+                        return false;
+                    }
+                    
+                    // Test data retrieval
+                    const retrievedSprints = manager.getAllSprints();
+                    const testSprintExists = retrievedSprints.some(sprint => 
+                        sprint.name === testSprint.name
+                    );
+                    
+                    if (testSprintExists) {
+                        this.addTestResult(
+                            'Data Persistence',
+                            'pass',
+                            'Data can be created and retrieved offline successfully'
+                        );
+                        
+                        // Clean up test sprint
+                        const sprintToDelete = retrievedSprints.find(sprint => 
+                            sprint.name === testSprint.name
+                        );
+                        if (sprintToDelete) {
+                            manager.deleteSprint(sprintToDelete.id);
+                        }
+                        
+                        return true;
+                    } else {
+                        this.addTestResult(
+                            'Data Persistence',
+                            'fail',
+                            'Created data not found in retrieval'
+                        );
+                        return false;
+                    }
+                } catch (error) {
+                    this.addTestResult(
+                        'Data Persistence',
+                        'fail',
+                        `Data persistence test failed: ${error.message}`
+                    );
+                    return false;
+                }
+            }
+            
+            async testOfflineNavigation() {
+                try {
+                    // Test if critical resources are cached
+                    const criticalResources = [
+                        '/',
+                        '/index.html',
+                        '/src/storage/storage.js',
+                        '/src/storage/models.js',
+                        '/src/sprints/sprint-manager.js',
+                        '/src/app.js'
+                    ];
+                    
+                    let cachedResourcesCount = 0;
+                    const cacheNames = await caches.keys();
+                    
+                    for (const cacheName of cacheNames) {
+                        const cache = await caches.open(cacheName);
+                        
+                        for (const resource of criticalResources) {
+                            const cachedResponse = await cache.match(resource);
+                            if (cachedResponse) {
+                                cachedResourcesCount++;
+                            }
+                        }
+                    }
+                    
+                    const cacheRatio = cachedResourcesCount / criticalResources.length;
+                    
+                    this.addTestResult(
+                        'Offline Navigation Readiness',
+                        cacheRatio >= 0.8 ? 'pass' : cacheRatio >= 0.5 ? 'warn' : 'fail',
+                        `${cachedResourcesCount}/${criticalResources.length} critical resources cached (${Math.round(cacheRatio * 100)}%)`,
+                        { cachedResources: cachedResourcesCount, totalResources: criticalResources.length }
+                    );
+                    
+                    return cacheRatio >= 0.8;
+                } catch (error) {
+                    this.addTestResult(
+                        'Offline Navigation',
+                        'fail',
+                        `Navigation test failed: ${error.message}`
+                    );
+                    return false;
+                }
+            }
+            
+            async testStorageQuotaOffline() {
+                try {
+                    if (!navigator.storage || !navigator.storage.estimate) {
+                        this.addTestResult(
+                            'Storage Quota Check',
+                            'warn',
+                            'Storage quota API not available'
+                        );
+                        return false;
+                    }
+                    
+                    const estimate = await navigator.storage.estimate();
+                    const usagePercentage = (estimate.usage / estimate.quota) * 100;
+                    
+                    let status = 'pass';
+                    let message = `Storage usage: ${this.formatBytes(estimate.usage)} / ${this.formatBytes(estimate.quota)} (${usagePercentage.toFixed(1)}%)`;
+                    
+                    if (usagePercentage > 80) {
+                        status = 'fail';
+                        message += ' - Storage critically low!';
+                    } else if (usagePercentage > 60) {
+                        status = 'warn';
+                        message += ' - Storage getting full';
+                    }
+                    
+                    this.addTestResult(
+                        'Storage Quota',
+                        status,
+                        message,
+                        { quota: estimate.quota, usage: estimate.usage, percentage: usagePercentage }
+                    );
+                    
+                    return usagePercentage < 80;
+                } catch (error) {
+                    this.addTestResult(
+                        'Storage Quota',
+                        'fail',
+                        `Storage quota check failed: ${error.message}`
+                    );
+                    return false;
+                }
+            }
+            
+            formatBytes(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            async runAllOfflineTests() {
+                this.results.innerHTML = '';
+                this.testResults = [];
+                
+                console.log('Starting offline functionality tests...');
+                
+                await this.testServiceWorkerInstallation();
+                await this.testCacheAvailability();
+                await this.testDataPersistenceOffline();
+                await this.testOfflineNavigation();
+                await this.testStorageQuotaOffline();
+                
+                this.generateOfflineSummary();
+            }
+            
+            generateOfflineSummary() {
+                const passedTests = this.testResults.filter(r => r.status === 'pass').length;
+                const failedTests = this.testResults.filter(r => r.status === 'fail').length;
+                const warnTests = this.testResults.filter(r => r.status === 'warn').length;
+                const totalTests = this.testResults.length;
+                
+                const passRate = Math.round((passedTests / totalTests) * 100);
+                
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'offline-test';
+                summaryDiv.innerHTML = `
+                    <h2>Offline Testing Summary</h2>
+                    <div class="test-result ${passRate >= 80 ? 'pass' : passRate >= 60 ? 'warn' : 'fail'}">
+                        <strong>Overall Offline Readiness: ${passRate}%</strong><br>
+                        ✅ Passed: ${passedTests} | ⚠️ Warnings: ${warnTests} | ❌ Failed: ${failedTests}
+                    </div>
+                    <p><strong>Offline Capability Assessment:</strong></p>
+                    <ul>
+                        <li>${passRate >= 80 ? '✅' : '❌'} Application ${passRate >= 80 ? 'is ready' : 'is not ready'} for offline use</li>
+                        <li>${passedTests >= 3 ? '✅' : '❌'} Core functionality ${passedTests >= 3 ? 'available' : 'limited'} offline</li>
+                        <li>${failedTests === 0 ? '✅' : '❌'} ${failedTests === 0 ? 'No critical' : failedTests + ' critical'} offline issues detected</li>
+                    </ul>
+                `;
+                
+                this.results.appendChild(summaryDiv);
+            }
+            
+            async simulateOfflineMode() {
+                // This is a simulation - real offline testing requires developer tools
+                this.addTestResult(
+                    'Offline Mode Simulation',
+                    'warn',
+                    'To fully test offline mode, use browser Developer Tools > Network tab > "Offline" checkbox'
+                );
+            }
+            
+            async clearAllCaches() {
+                try {
+                    const cacheNames = await caches.keys();
+                    
+                    for (const cacheName of cacheNames) {
+                        await caches.delete(cacheName);
+                    }
+                    
+                    this.addTestResult(
+                        'Cache Clearing',
+                        'pass',
+                        `Cleared ${cacheNames.length} caches`
+                    );
+                    
+                    // Refresh cache status
+                    await this.checkCacheStatus();
+                } catch (error) {
+                    this.addTestResult(
+                        'Cache Clearing',
+                        'fail',
+                        `Failed to clear caches: ${error.message}`
+                    );
+                }
+            }
+        }
+        
+        // Global functions
+        let offlineFramework;
+        
+        function runOfflineTests() {
+            offlineFramework.runAllOfflineTests();
+        }
+        
+        function testCacheStatus() {
+            offlineFramework.checkCacheStatus();
+        }
+        
+        function testDataPersistence() {
+            offlineFramework.testDataPersistenceOffline();
+        }
+        
+        function simulateOfflineMode() {
+            offlineFramework.simulateOfflineMode();
+        }
+        
+        function clearCaches() {
+            if (confirm('Clear all caches? This will require re-downloading resources.')) {
+                offlineFramework.clearAllCaches();
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            offlineFramework = new OfflineTestFramework();
+        });
+    </script>
+</body>
+</html>

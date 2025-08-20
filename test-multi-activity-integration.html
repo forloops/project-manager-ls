@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Activity Capacity Integration Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h1 class="text-2xl font-bold text-gray-900 mb-4">Multi-Activity Capacity Integration Test</h1>
+            <p class="text-gray-600 mb-6">Testing the integration of ActivityCapacityCell components in the capacity planner.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 class="font-semibold text-blue-900 mb-2">Test Objectives</h3>
+                    <ul class="text-sm text-blue-800 space-y-1">
+                        <li>✓ ActivityCapacityCell components render in planner</li>
+                        <li>✓ Click cells to add multiple activities</li>
+                        <li>✓ Activity types and colors display correctly</li>
+                        <li>✓ Capacity validation works</li>
+                        <li>✓ Analytics update with activity data</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 class="font-semibold text-green-900 mb-2">Integration Status</h3>
+                    <div id="integrationStatus" class="text-sm text-green-800 space-y-1">
+                        <div>Loading integration status...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Capacity Planner Container -->
+        <div id="capacityPlannerContainer" class="mb-6">
+            <!-- Capacity planner will be rendered here -->
+        </div>
+        
+        <!-- Test Results -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Test Results</h2>
+            <div id="testResults" class="space-y-2">
+                <div class="text-gray-600">Running integration tests...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Core Application Components -->
+    <script src="src/storage/storage.js"></script>
+    <script src="src/storage/models.js"></script>
+    <script src="src/models/activity-model.js"></script>
+    <script src="src/team/team-manager.js"></script>
+    <script src="src/sprints/sprint-manager.js"></script>
+    <script src="src/team/capacity-tracker.js"></script>
+    <script src="src/capacity/activity-modal.js"></script>
+    <script src="src/capacity/activity-capacity-cell.js"></script>
+    <script src="src/capacity/capacity-planner.js"></script>
+    <script src="src/capacity/capacity-alpine-component.js"></script>
+
+    <script>
+        // Test Suite for Multi-Activity Integration
+        class MultiActivityIntegrationTest {
+            constructor() {
+                this.results = [];
+                this.statusContainer = document.getElementById('integrationStatus');
+                this.resultsContainer = document.getElementById('testResults');
+                
+                this.setupTestData();
+                this.runTests();
+            }
+            
+            async setupTestData() {
+                // Initialize storage
+                window.storageManager = new StorageManager();
+                
+                // Initialize managers
+                window.teamManager = new TeamManager();
+                window.sprintManager = new SprintManager();
+                window.capacityTracker = new CapacityTracker();
+                
+                // Create test team members
+                const testMembers = [
+                    {
+                        id: 'member-1',
+                        name: 'Alice Developer',
+                        role: 'Senior Developer',
+                        email: 'alice@example.com',
+                        defaultCapacity: 6,
+                        skills: ['JavaScript', 'React'],
+                        isActive: true
+                    },
+                    {
+                        id: 'member-2',
+                        name: 'Bob Tester',
+                        role: 'QA Engineer',
+                        email: 'bob@example.com',
+                        defaultCapacity: 5,
+                        skills: ['Testing', 'Automation'],
+                        isActive: true
+                    }
+                ];
+                
+                testMembers.forEach(member => {
+                    window.teamManager.addTeamMember(member);
+                });
+                
+                // Create test sprint
+                const today = new Date();
+                const startDate = new Date(today);
+                startDate.setDate(today.getDate() - 3);
+                const endDate = new Date(today);
+                endDate.setDate(today.getDate() + 10);
+                
+                const testSprint = {
+                    id: 'test-sprint-1',
+                    name: 'Test Sprint for Multi-Activity',
+                    startDate: startDate.toISOString().split('T')[0],
+                    endDate: endDate.toISOString().split('T')[0],
+                    goal: 'Test multi-activity capacity allocation',
+                    status: 'active'
+                };
+                
+                window.sprintManager.createSprint(testSprint);
+                
+                // Add some test activities
+                const testDate = today.toISOString().split('T')[0];
+                window.capacityTracker.addMemberActivity('member-1', testDate, {
+                    name: 'Feature Development',
+                    type: 'development',
+                    capacity: 4,
+                    description: 'Working on new feature'
+                });
+                
+                window.capacityTracker.addMemberActivity('member-1', testDate, {
+                    name: 'Code Review',
+                    type: 'review',
+                    capacity: 1,
+                    description: 'Reviewing team PRs'
+                });
+                
+                this.log('Test data setup completed', 'success');
+            }
+            
+            async runTests() {
+                this.updateStatus('Running integration tests...');
+                
+                await this.testComponentLoading();
+                await this.testCapacityPlannerIntegration();
+                await this.testActivityCellRendering();
+                await this.testActivityDataIntegration();
+                await this.testAlpineJSIntegration();
+                
+                this.displayResults();
+            }
+            
+            async testComponentLoading() {
+                this.test('ActivityCapacityCell class exists', () => {
+                    return typeof window.ActivityCapacityCell === 'function';
+                });
+                
+                this.test('ActivityModal class exists', () => {
+                    return typeof window.ActivityModal === 'function';
+                });
+                
+                this.test('ActivityModel class exists', () => {
+                    return typeof window.ActivityModel === 'function';
+                });
+                
+                this.test('CapacityPlanner class exists', () => {
+                    return typeof window.CapacityPlanner === 'function';
+                });
+                
+                this.test('CapacityPlannerManager instance exists', () => {
+                    return window.capacityPlannerManager instanceof window.CapacityPlanner;
+                });
+            }
+            
+            async testCapacityPlannerIntegration() {
+                this.test('Initialize capacity planner', () => {
+                    const success = window.capacityPlannerManager.initializePlanner(
+                        'capacityPlannerContainer', 
+                        'test-sprint-1'
+                    );
+                    return success === true;
+                });
+                
+                this.test('Capacity planner has initializeActivityCells method', () => {
+                    return typeof window.capacityPlannerManager.initializeActivityCells === 'function';
+                });
+                
+                this.test('Capacity planner has handleActivityCapacityChange method', () => {
+                    return typeof window.capacityPlannerManager.handleActivityCapacityChange === 'function';
+                });
+            }
+            
+            async testActivityCellRendering() {
+                // Wait for rendering
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                this.test('Activity capacity cell containers exist', () => {
+                    const containers = document.querySelectorAll('.activity-capacity-cell-container');
+                    return containers.length > 0;
+                });
+                
+                this.test('ActivityCapacityCell instances created', () => {
+                    const containers = document.querySelectorAll('.activity-capacity-cell-container');
+                    let hasInstances = false;
+                    containers.forEach(container => {
+                        if (container._activityCell) {
+                            hasInstances = true;
+                        }
+                    });
+                    return hasInstances;
+                });
+                
+                this.test('Activity cells render with proper structure', () => {
+                    const activityCells = document.querySelectorAll('.activity-capacity-cell');
+                    return activityCells.length > 0;
+                });
+            }
+            
+            async testActivityDataIntegration() {
+                this.test('getMemberDateCapacity returns activity-based data', () => {
+                    const today = new Date().toISOString().split('T')[0];
+                    const capacity = window.capacityPlannerManager.getMemberDateCapacity('member-1', today);
+                    return capacity === 5; // 4 + 1 from test activities
+                });
+                
+                this.test('Activity data persists in storage', () => {
+                    const today = new Date().toISOString().split('T')[0];
+                    const activities = window.capacityTracker.getMemberDateActivities('member-1', today);
+                    return activities.length === 2;
+                });
+                
+                this.test('Activity types have proper configuration', () => {
+                    const types = window.ActivityModel.getActivityTypes();
+                    return types.length >= 8 && types[0].value === 'development';
+                });
+            }
+            
+            async testAlpineJSIntegration() {
+                this.test('Alpine.js capacityPlannerComponent exists', () => {
+                    return typeof window.capacityPlannerComponent === 'function';
+                });
+                
+                this.test('Alpine.js component has activity event handlers', () => {
+                    const component = window.capacityPlannerComponent();
+                    return typeof component.handleActivityCapacityChange === 'function' &&
+                           typeof component.handleCellExpansion === 'function';
+                });
+            }
+            
+            test(name, fn) {
+                try {
+                    const result = fn();
+                    this.results.push({ name, status: result ? 'pass' : 'fail', error: null });
+                    this.log(`${result ? '✓' : '✗'} ${name}`, result ? 'success' : 'error');
+                } catch (error) {
+                    this.results.push({ name, status: 'error', error: error.message });
+                    this.log(`✗ ${name}: ${error.message}`, 'error');
+                }
+            }
+            
+            updateStatus(message) {
+                this.statusContainer.innerHTML = `<div>${message}</div>`;
+            }
+            
+            log(message, type = 'info') {
+                const colors = {
+                    success: 'text-green-600',
+                    error: 'text-red-600',
+                    info: 'text-blue-600'
+                };
+                
+                const div = document.createElement('div');
+                div.className = `text-sm ${colors[type]}`;
+                div.textContent = message;
+                this.statusContainer.appendChild(div);
+            }
+            
+            displayResults() {
+                const passed = this.results.filter(r => r.status === 'pass').length;
+                const total = this.results.length;
+                const percentage = Math.round((passed / total) * 100);
+                
+                let html = `
+                    <div class="mb-4 p-4 rounded-lg ${
+                        percentage === 100 ? 'bg-green-50 border border-green-200' : 
+                        percentage >= 80 ? 'bg-yellow-50 border border-yellow-200' : 
+                        'bg-red-50 border border-red-200'
+                    }">
+                        <h3 class="font-semibold text-lg mb-2">Test Summary</h3>
+                        <p class="text-sm mb-2">Passed: ${passed}/${total} tests (${percentage}%)</p>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-green-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                `;
+                
+                this.results.forEach(result => {
+                    const icon = result.status === 'pass' ? '✓' : '✗';
+                    const color = result.status === 'pass' ? 'text-green-600' : 'text-red-600';
+                    
+                    html += `
+                        <div class="flex items-center space-x-2 p-2 rounded border">
+                            <span class="${color} font-mono">${icon}</span>
+                            <span class="flex-1">${result.name}</span>
+                            <span class="text-sm ${color}">${result.status}</span>
+                        </div>
+                    `;
+                    
+                    if (result.error) {
+                        html += `
+                            <div class="text-red-600 text-xs ml-6 p-2 bg-red-50 rounded">
+                                Error: ${result.error}
+                            </div>
+                        `;
+                    }
+                });
+                
+                html += '</div>';
+                
+                this.resultsContainer.innerHTML = html;
+                
+                // Update status
+                if (percentage === 100) {
+                    this.updateStatus('✅ All tests passed! Multi-activity integration is working correctly.');
+                } else if (percentage >= 80) {
+                    this.updateStatus('⚠️ Most tests passed. Some minor issues detected.');
+                } else {
+                    this.updateStatus('❌ Integration issues detected. Review failed tests.');
+                }
+            }
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Small delay to ensure all scripts are loaded
+            setTimeout(() => {
+                new MultiActivityIntegrationTest();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
